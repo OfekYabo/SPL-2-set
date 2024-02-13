@@ -121,7 +121,7 @@ public class Player implements Runnable {
             env.logger.info("thread " + Thread.currentThread().getName() + " starting.");
             while (!terminate) {
                 if(!isWaiting && !isAsleep()){
-                    // TODO Produce random keypress
+                   generateRandomKeyPress();      
                 }
                 else{
                     // TODO send thread to sleep
@@ -152,6 +152,19 @@ public class Player implements Runnable {
         if((table.getTokens(id).size() < SET_SIZE || table.getTokens(id).contains(slot)) && actions.size() < SET_SIZE) {
             actions.add(slot);
         }
+    }
+
+    public void generateRandomKeyPress() {
+        // Retrieving available and legal slots to press on
+        List<Integer> usedSlots = new ArrayList<Integer>();
+        List<Integer> cardsOnTable = table.getCardsOnTable();
+        Integer[] cardToSlot = table.getCardtoSlot();
+        for (int i = 0; i < cardsOnTable.size(); i++){
+            usedSlots.add(cardToSlot[cardsOnTable.get(i)]);
+        }
+        int randomIndex = new Random().nextInt(usedSlots.size());
+        Collections.shuffle(usedSlots);
+        keyPressed(randomIndex);
     }
 
     /**
@@ -190,12 +203,24 @@ public class Player implements Runnable {
         }
 
         if(isFull){
-            // sleep until the dealer checks player's actions
+            // TODO sleep until the dealer checks player's actions
         }
         
     }
 
+    /**
+     * 
+     * @return - True iff the player's thread is asleep.
+     */
     public boolean isAsleep(){
         return (wakeUpTime - System.currentTimeMillis() > 0);
+    }
+
+    public int getId() {
+        return this.id;
+    }
+
+    public Queue<Integer> getActions(){
+        return this.actions;
     }
 }
