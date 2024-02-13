@@ -2,6 +2,7 @@ package bguspl.set.ex;
 
 import bguspl.set.Env;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
@@ -30,6 +31,12 @@ public class Table {
     protected final Integer[] cardToSlot; // slot per card (if any)
 
     /**
+     * 2D list that contains for each player which slots were used to place their tokens.
+     */
+
+    private List<List<Integer>> tokensOfPlayers;
+
+    /**
      * Constructor for testing.
      *
      * @param env        - the game environment objects.
@@ -41,6 +48,10 @@ public class Table {
         this.env = env;
         this.slotToCard = slotToCard;
         this.cardToSlot = cardToSlot;
+        this.tokensOfPlayers = new ArrayList<List<Integer>>();
+        for(int i=0; i<env.config.players; i=i+1){
+            this.tokensOfPlayers.add(new ArrayList<Integer>());
+        }
     }
 
     /**
@@ -93,8 +104,9 @@ public class Table {
 
         cardToSlot[card] = slot;
         slotToCard[slot] = card;
+        
+        env.ui.placeCard(card, slot); // Dealer should remove the card from the deck list
 
-        // TODO implement
     }
 
     /**
@@ -106,7 +118,19 @@ public class Table {
             Thread.sleep(env.config.tableDelayMillis);
         } catch (InterruptedException ignored) {}
 
-        // TODO implement
+        for (List<Integer> tokens : tokensOfPlayers) {
+            if(tokens.contains(slot))
+                tokens.remove(Integer.valueOf(slot));
+        }
+
+        if (slotToCard[slot] != null) {
+            int card = slotToCard[slot];
+            slotToCard[slot] = null;
+            cardToSlot[card] = null;
+            env.ui.removeTokens(slot);
+            env.ui.removeCard(slot);
+        }
+
     }
 
     /**
@@ -115,7 +139,13 @@ public class Table {
      * @param slot   - the slot on which to place the token.
      */
     public void placeToken(int player, int slot) {
-        // TODO implement
+
+        if(this.tokensOfPlayers.get(player).contains(slot))
+            removeToken(player, slot);
+        else if (this.tokensOfPlayers.get(player).size() <= 2) {
+            this.tokensOfPlayers.get(player).add(slot);
+            env.ui.placeToken(player, slot);
+        }
     }
 
     /**
@@ -125,7 +155,45 @@ public class Table {
      * @return       - true iff a token was successfully removed.
      */
     public boolean removeToken(int player, int slot) {
-        // TODO implement
+  
+        if((this.tokensOfPlayers.get(player).size() != 0) && this.tokensOfPlayers.get(player).contains(slot)){
+            this.tokensOfPlayers.get(player).remove(Integer.valueOf(slot));
+            env.ui.removeToken(player, slot);
+            return true;
+        }
         return false;
+    }
+
+    /** 
+     * @param player - the player who placed the tokens
+     * @return - list of slots the players placed his token on
+     * @inv for each player : 0 <= getTokens(player).size() <= 3
+     */
+    public List<Integer> getTokens (int player) {
+        return tokensOfPlayers.get(player);
+    }
+
+    public void clearAllTokens () {
+        for (int i = 0; i < env.config.players; i = i + 1)
+            clearTokensOfPlayer(i);
+        env.ui.removeTokens();
+    }
+
+    public void clearTokensOfPlayer (int player){
+        this.tokensOfPlayers.get(player).clear();
+        for (Integer slot : this.tokensOfPlayers.get(player))
+            env.ui.removeToken(player, slot);
+    }
+
+    public Integer[] getSlotToCard(){
+        return this.slotToCard;
+    }
+
+    public Integer[] getCardtoSlot(){
+        return this.cardToSlot;
+    }
+
+    public int getCard (int slot){
+        return slotToCard[slot];
     }
 }

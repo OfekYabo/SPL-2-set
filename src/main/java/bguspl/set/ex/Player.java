@@ -21,6 +21,11 @@ public class Player implements Runnable {
     private final Table table;
 
     /**
+     * The dealer of the game
+     */
+    private final Dealer dealer;
+
+    /**
      * The id of the player (starting from 0).
      */
     public final int id;
@@ -41,7 +46,7 @@ public class Player implements Runnable {
     private final boolean human;
 
     /**
-     * True iff game should be terminated.
+     * True iff game should be terminated, initialized false as default.
      */
     private volatile boolean terminate;
 
@@ -61,6 +66,7 @@ public class Player implements Runnable {
      */
     public Player(Env env, Dealer dealer, Table table, int id, boolean human) {
         this.env = env;
+        this.dealer = dealer;
         this.table = table;
         this.id = id;
         this.human = human;
