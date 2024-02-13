@@ -78,22 +78,6 @@ public class Table {
         });
     }
 
-    public List<Integer> hintForAI() {
-        List<Integer> deck = Arrays.stream(slotToCard).filter(Objects::nonNull).collect(Collectors.toList());
-        List<int[]> foundSets = env.util.findSets(deck, 1000);
-        List<Integer> setSlots = new ArrayList<Integer>();
-        Random rand = new Random();
-        if(setIsFound(foundSets)){
-            int randomIndex = rand.nextInt(foundSets.size());
-            int[] set = foundSets.get(randomIndex);
-            for (int i = 0; i < set.length; i=i+1) {
-                Integer slot = cardToSlot[set[i]];
-                if (slot != null)
-                    setSlots.add(slot);
-            }
-        }
-        return setSlots;
-    }
 
     public boolean setIsFound (List<int[]> sets){
         return sets.size() > 0;
