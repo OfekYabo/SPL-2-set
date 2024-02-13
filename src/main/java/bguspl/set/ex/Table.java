@@ -202,4 +202,17 @@ public class Table {
     public int getCard (int slot){
         return slotToCard[slot];
     }
+
+    /**
+     * 
+     * @return - A list of placed cards on the table.
+     */
+    public List<Integer> getCardsOnTable(){
+        List<Integer> cardsOnTable = new ArrayList<Integer>();
+        for (Integer card : slotToCard){
+            if (card != null)
+                cardsOnTable.add(card);
+        }
+        return cardsOnTable;
+    }
 }
