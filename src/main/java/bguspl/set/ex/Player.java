@@ -1,5 +1,8 @@
 package bguspl.set.ex;
 
+import java.util.*;
+import java.util.concurrent.ArrayBlockingQueue;
+
 import bguspl.set.Env;
 
 /**
@@ -56,6 +59,20 @@ public class Player implements Runnable {
     private int score;
 
     /**
+     * The queue of incoming actions of the player
+     * @inv - the size of the queue must be between 0 to 3
+     */
+    private Queue<Integer> actions;
+
+    private final int SET_SIZE = 3;
+
+    // private boolean isSleep = false; // Whether the thread is SLEEPING due to point or penalty, not sure if needed.
+    private boolean isWaiting = false; // Whether the thread is WAITING after placing tokens and notifying the dealer
+    private long wakeUpTime;
+
+
+
+    /**
      * The class constructor.
      *
      * @param env    - the environment object.
@@ -70,6 +87,7 @@ public class Player implements Runnable {
         this.table = table;
         this.id = id;
         this.human = human;
+        this.actions = new ArrayBlockingQueue<>(SET_SIZE);
     }
 
     /**
@@ -82,7 +100,12 @@ public class Player implements Runnable {
         if (!human) createArtificialIntelligence();
 
         while (!terminate) {
-            // TODO implement main player loop
+
+            if(!isWaiting && !isAsleep())
+                placeOrRemoveTokens();
+            else {
+                // TODO set timer in the UI accordingly and send the thread to sleep
+            }
         }
         if (!human) try { aiThread.join(); } catch (InterruptedException ignored) {}
         env.logger.info("thread " + Thread.currentThread().getName() + " terminated.");
@@ -97,7 +120,12 @@ public class Player implements Runnable {
         aiThread = new Thread(() -> {
             env.logger.info("thread " + Thread.currentThread().getName() + " starting.");
             while (!terminate) {
-                // TODO implement player key press simulator
+                if(!isWaiting && !isAsleep()){
+                    // TODO Produce random keypress
+                }
+                else{
+                    // TODO send thread to sleep
+                }
                 try {
                     synchronized (this) { wait(); }
                 } catch (InterruptedException ignored) {}
@@ -111,7 +139,8 @@ public class Player implements Runnable {
      * Called when the game should be terminated.
      */
     public void terminate() {
-        // TODO implement
+        terminate = true;
+        // TODO Other calls?
     }
 
     /**
@@ -120,7 +149,9 @@ public class Player implements Runnable {
      * @param slot - the slot corresponding to the key pressed.
      */
     public void keyPressed(int slot) {
-        // TODO implement
+        if((table.getTokens(id).size() < SET_SIZE || table.getTokens(id).contains(slot)) && actions.size() < SET_SIZE) {
+            actions.add(slot);
+        }
     }
 
     /**
@@ -131,9 +162,9 @@ public class Player implements Runnable {
      */
     public void point() {
         // TODO implement
-
         int ignored = table.countCards(); // this part is just for demonstration in the unit tests
         env.ui.setScore(id, ++score);
+
     }
 
     /**
@@ -145,5 +176,26 @@ public class Player implements Runnable {
 
     public int score() {
         return score;
+    }
+    /**
+     * Player is placing / removing a token from the table
+     */
+    public void placeOrRemoveTokens() {
+
+        boolean isFull = table.getTokens(id).size() == SET_SIZE;
+        while(!actions.isEmpty()){
+            int slot = actions.poll();
+            if(table.slotToCard[slot] != null)
+                table.placeToken(id, slot);
+        }
+
+        if(isFull){
+            // sleep until the dealer checks player's actions
+        }
+        
+    }
+
+    public boolean isAsleep(){
+        return (wakeUpTime - System.currentTimeMillis() > 0);
     }
 }

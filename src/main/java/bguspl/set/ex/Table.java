@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
+import java.util.Random;
 import java.util.stream.Collectors;
 
 /**
@@ -75,6 +76,27 @@ public class Table {
             int[][] features = env.util.cardsToFeatures(set);
             System.out.println(sb.append("slots: ").append(slots).append(" features: ").append(Arrays.deepToString(features)));
         });
+    }
+
+    public List<Integer> hintForAI() {
+        List<Integer> deck = Arrays.stream(slotToCard).filter(Objects::nonNull).collect(Collectors.toList());
+        List<int[]> foundSets = env.util.findSets(deck, 1000);
+        List<Integer> setSlots = new ArrayList<Integer>();
+        Random rand = new Random();
+        if(setIsFound(foundSets)){
+            int randomIndex = rand.nextInt(foundSets.size());
+            int[] set = foundSets.get(randomIndex);
+            for (int i = 0; i < set.length; i=i+1) {
+                Integer slot = cardToSlot[set[i]];
+                if (slot != null)
+                    setSlots.add(slot);
+            }
+        }
+        return setSlots;
+    }
+
+    public boolean setIsFound (List<int[]> sets){
+        return sets.size() > 0;
     }
 
     /**
