@@ -37,6 +37,9 @@ public class Table {
 
     private List<List<Integer>> tokensOfPlayers;
 
+    // Need to change slotToToken[][]
+    // for each player - array of slots
+
     /**
      * Constructor for testing.
      *
