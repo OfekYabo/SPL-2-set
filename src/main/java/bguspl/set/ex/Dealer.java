@@ -122,9 +122,7 @@ public class Dealer implements Runnable, DealerObserver {
             int cardsMiss = env.config.tableSize - table.countCards();
             if (cardsMiss > 0) {
                 List<Integer> cards = new LinkedList<Integer>();
-                for (int i = 0; i<cardsMiss & deck.size()>0; i++) {
-                cards.add(deck.remove(0));
-                }
+                for (int i = 0; i<cardsMiss & deck.size()>0; i++) cards.add(deck.remove(0));
                 table.placeCards(cards);
             }
         }
