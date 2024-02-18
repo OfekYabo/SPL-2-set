@@ -178,7 +178,12 @@ public class Dealer implements Runnable, DealerObserver {
         // TODO implement
     }
 
-    @Override
+
+    ///////////////////////
+    // **new functions** //
+    ///////////////////////
+
+    
     public void onEventHappened(int playerID, CountDownLatch latch) throws InterruptedException {
             queue.put(new PlayerTask(playerID, latch));
     }
