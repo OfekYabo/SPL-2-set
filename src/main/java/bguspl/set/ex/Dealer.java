@@ -3,13 +3,16 @@ package bguspl.set.ex;
 import bguspl.set.Env;
 
 import java.util.List;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-
+import java.util.LinkedList;
 /**
  * This class manages the dealer's threads and data
  */
-public class Dealer implements Runnable {
+public class Dealer implements Runnable, DealerObserver {
 
     /**
      * The game environment object.
@@ -37,7 +40,21 @@ public class Dealer implements Runnable {
      */
     private long reshuffleTime = Long.MAX_VALUE;
 
+    private BlockingQueue<PlayerTask> queue = new LinkedBlockingQueue<PlayerTask>();
+
+    private class PlayerTask {
+        int playerID;
+        CountDownLatch latch;
+
+        PlayerTask(int playerID, CountDownLatch latch) {
+            this.playerID = playerID;
+            this.latch = latch;
+        }
+    }
+
+
     public Dealer(Env env, Table table, Player[] players) {
+        terminate = false;
         this.env = env;
         this.table = table;
         this.players = players;
@@ -51,6 +68,7 @@ public class Dealer implements Runnable {
     public void run() {
         env.logger.info("thread " + Thread.currentThread().getName() + " starting.");
         while (!shouldFinish()) {
+            //shuffle the deck
             placeCardsOnTable();
             timerLoop();
             updateTimerDisplay(false);
@@ -76,7 +94,7 @@ public class Dealer implements Runnable {
      * Called when the game should be terminated.
      */
     public void terminate() {
-        // TODO implement
+        terminate = true;
     }
 
     /**
@@ -100,13 +118,40 @@ public class Dealer implements Runnable {
      */
     private void placeCardsOnTable() {
         // TODO implement
+        if (deck.size()>0){
+            int cardsMiss = env.config.tableSize - table.countCards();
+            if (cardsMiss > 0) {
+                List<Integer> cards = new LinkedList<Integer>();
+                for (int i = 0; i<cardsMiss & deck.size()>0; i++) {
+                cards.add(deck.remove(0));
+                }
+                table.placeCards(cards);
+            }
+        }
     }
 
     /**
      * Sleep for a fixed amount of time or until the thread is awakened for some purpose.
      */
     private void sleepUntilWokenOrTimeout() {
-        // TODO implement
+        while (!terminate && System.currentTimeMillis() < reshuffleTime) {  
+            try {
+                PlayerTask task = queue.take();
+                Player player = players[task.playerID];
+                int[] set = table.getPlayerSet(task.playerID);
+                if (set == null || !env.util.testSet(set)) {
+                    player.penalty();
+                } else {
+                    table.removeSet(set);
+                    placeCardsOnTable();
+                    player.point();
+                }
+                task.latch.countDown();
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                break;
+            }
+        }
     }
 
     /**
@@ -120,7 +165,7 @@ public class Dealer implements Runnable {
      * Returns all the cards from the table to the deck.
      */
     private void removeAllCardsFromTable() {
-        // TODO implement
+        table.removeAllCards();
     }
 
     /**
@@ -128,5 +173,10 @@ public class Dealer implements Runnable {
      */
     private void announceWinners() {
         // TODO implement
+    }
+
+    @Override
+    public void onEventHappened(int playerID, CountDownLatch latch) throws InterruptedException {
+            queue.put(new PlayerTask(playerID, latch));
     }
 }

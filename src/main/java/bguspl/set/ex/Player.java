@@ -1,6 +1,11 @@
 package bguspl.set.ex;
 
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.LinkedBlockingQueue;
+
 import bguspl.set.Env;
+import java.util.concurrent.ArrayBlockingQueue;
 
 /**
  * This class manages the players' threads and data
@@ -50,6 +55,13 @@ public class Player implements Runnable {
      */
     private int score;
 
+    private DealerObserver dealerObserver;
+
+    private volatile boolean pointOrPaneltyFlag; // true if point, false if penalty
+
+    private BlockingQueue<Integer> queue = new ArrayBlockingQueue<Integer>(3);
+
+
     /**
      * The class constructor.
      *
@@ -60,10 +72,13 @@ public class Player implements Runnable {
      * @param human  - true iff the player is a human player (i.e. input is provided manually, via the keyboard).
      */
     public Player(Env env, Dealer dealer, Table table, int id, boolean human) {
+        terminate = false;
         this.env = env;
         this.table = table;
         this.id = id;
         this.human = human;
+        score = 0;
+        dealerObserver = dealer;
     }
 
     /**
@@ -76,7 +91,26 @@ public class Player implements Runnable {
         if (!human) createArtificialIntelligence();
 
         while (!terminate) {
-            // TODO implement main player loop
+            try {
+                Integer slot = queue.take();
+                int tokens = table.placeOrRemoveToken(slot, id);
+                if (tokens == 3) {
+                    CountDownLatch latch = new CountDownLatch(1);
+                    dealerObserver.onEventHappened(id, latch);
+                    latch.await();
+                    if (pointOrPaneltyFlag) {
+                        // TODO implement
+                    } else {
+                        // TODO implement
+                    }
+                    // TODO implement clear queue maybe
+                }
+            } catch (InterruptedException e) {
+                // If the thread is interrupted while waiting to take an item from the queue,
+                // it will exit the loop and terminate.
+                Thread.currentThread().interrupt();
+                break;
+            }
         }
         if (!human) try { aiThread.join(); } catch (InterruptedException ignored) {}
         env.logger.info("thread " + Thread.currentThread().getName() + " terminated.");
@@ -92,6 +126,8 @@ public class Player implements Runnable {
             env.logger.info("thread " + Thread.currentThread().getName() + " starting.");
             while (!terminate) {
                 // TODO implement player key press simulator
+                //generate randome press
+                //keyPressed(randomeSlot);
                 try {
                     synchronized (this) { wait(); }
                 } catch (InterruptedException ignored) {}
@@ -105,16 +141,21 @@ public class Player implements Runnable {
      * Called when the game should be terminated.
      */
     public void terminate() {
-        // TODO implement
+        terminate = true;
     }
 
     /**
      * This method is called when a key is pressed.
      *
      * @param slot - the slot corresponding to the key pressed.
+     * @throws InterruptedException 
      */
-    public void keyPressed(int slot) {
-        // TODO implement
+    public void keyPressed(int slot) throws InterruptedException {
+            try {
+                queue.put(slot);
+            } catch (InterruptedException e) {
+                throw e;
+            }
     }
 
     /**
@@ -125,6 +166,8 @@ public class Player implements Runnable {
      */
     public void point() {
         // TODO implement
+        score++;
+        pointOrPaneltyFlag = true;
 
         int ignored = table.countCards(); // this part is just for demonstration in the unit tests
         env.ui.setScore(id, ++score);
@@ -135,6 +178,7 @@ public class Player implements Runnable {
      */
     public void penalty() {
         // TODO implement
+        pointOrPaneltyFlag = false;
     }
 
     public int score() {
