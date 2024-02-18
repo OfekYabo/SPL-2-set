@@ -128,4 +128,45 @@ public class Table {
         // TODO implement
         return false;
     }
+
+    ///////////////////////
+    // **new functions** //
+    ///////////////////////
+
+    //only dealer call
+    //if less or more than 3: return null
+    public int[] getPlayerSet(int playerID){
+        //TODO implement
+        return null;
+    }
+
+    //only player call
+    public int placeOrRemoveToken(int slot, int playerID){
+        //TODO implement
+        return 0;
+    }
+    
+    //return false if any fail
+    public boolean placeCards(List<Integer> cards){
+        //TODO implement
+        return false;
+    }
+    
+    //only dealer call if correct set
+    //return false if any fail
+    public boolean removeSet(int[] set){
+        //TODO implement
+        return false;
+    }
+
+    //only dealer call
+    //return false if any fail
+    public boolean removeAllCards(){
+        //TODO implement
+        return false;
+    }
+
+
+
+
 }

@@ -2,7 +2,6 @@ package bguspl.set.ex;
 
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.LinkedBlockingQueue;
 
 import bguspl.set.Env;
 import java.util.concurrent.ArrayBlockingQueue;
@@ -126,8 +125,8 @@ public class Player implements Runnable {
             env.logger.info("thread " + Thread.currentThread().getName() + " starting.");
             while (!terminate) {
                 // TODO implement player key press simulator
-                //generate randome press
-                //keyPressed(randomeSlot);
+                int randome = 0; //TODO generate randome press
+                keyPressed(randome); 
                 try {
                     synchronized (this) { wait(); }
                 } catch (InterruptedException ignored) {}
@@ -148,14 +147,13 @@ public class Player implements Runnable {
      * This method is called when a key is pressed.
      *
      * @param slot - the slot corresponding to the key pressed.
-     * @throws InterruptedException 
      */
-    public void keyPressed(int slot) throws InterruptedException {
-            try {
-                queue.put(slot);
-            } catch (InterruptedException e) {
-                throw e;
-            }
+    public void keyPressed(int slot){
+        try {
+            queue.put(slot);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
     }
 
     /**

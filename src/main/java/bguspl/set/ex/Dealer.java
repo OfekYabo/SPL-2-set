@@ -67,6 +67,11 @@ public class Dealer implements Runnable, DealerObserver {
     @Override
     public void run() {
         env.logger.info("thread " + Thread.currentThread().getName() + " starting.");
+        for (Player player : players) {
+            Thread playerThread = new Thread(player, "Player: " + player.id);
+            playerThread.start();
+            env.logger.info("thread " + playerThread.getName() + " created.");
+        }
         while (!shouldFinish()) {
             //shuffle the deck
             placeCardsOnTable();
