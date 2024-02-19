@@ -4,6 +4,7 @@ import bguspl.set.Env;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
@@ -103,8 +104,7 @@ public class Table {
         cardToSlot[card] = slot;
         slotToCard[slot] = card;
         
-        env.ui.placeCard(card, slot); // Dealer should remove the card from the deck list
-
+        env.ui.placeCard(card, slot); 
     }
 
     /**
@@ -168,10 +168,13 @@ public class Table {
      * @return - the amount of tokens the player has placed in the table after his action.
      */
     public int placeOrRemoveToken (int player, int slot) {
-        if(!slotToToken[slot][player])
-            placeToken(player, slot);
-        else
+        int numOfTokens = numOfTokens(player);
+        if(numOfTokens == 3 && !slotToToken[slot][player])
+            return -1;
+        else if (slotToToken[slot][player])
             removeToken(player, slot);
+        else
+            placeToken(player, slot);
         return numOfTokens(player);
     }
     
@@ -192,17 +195,17 @@ public class Table {
 
     /** 
      * @param player - the player who placed the tokens
-     * @return - list of slots the players placed his token on
+     * @return - list of card IDs the players placed his token on
      * @inv for each player : 0 <= getTokens(player).size() <= 3
      */
-    public Integer[] getTokens (int player) {
-        List<Integer> tokens = new ArrayList<Integer>();
+    public Integer[] getTokenCards (int player) {
+        List<Integer> cards = new ArrayList<Integer>();
         for (int i = 0; i < slotToToken.length; i++) {
             if(slotToToken[i][player])
-                tokens.add(i);
+                cards.add(slotToCard[i]);
         }
-        Integer[] arr = new Integer[tokens.size()];
-        return tokens.toArray(arr);
+        Integer[] arr = new Integer[cards.size()];
+        return cards.toArray(arr);
     }
 
     /**
@@ -219,8 +222,8 @@ public class Table {
      * The method clears all the tokens placed by the player.
      */
     public void clearTokensOfPlayer (int player){
-        for (int i = 0; i < slotToToken.length; i++){
-            removeToken(i, player);
+        for (int slot = 0; slot < env.config.tableSize; slot++){
+            removeToken(slot, player);
         }
     }
 
@@ -240,14 +243,14 @@ public class Table {
     /**
      * 
      * @param playerID - the player the set belong to.
-     * @return - An array of integers representing the slots of the set, if it's not legal set, return null.
+     * @return - An array of integers representing the card IDs of the set, if it's illegal set size, return null.
      */
     public Integer[] getPlayerSet(int playerID){
         int size = numOfTokens(playerID);
         if(size != 3)
             return null;
         else {
-            return getTokens(playerID);
+            return getTokenCards(playerID);
         }
     }
 
@@ -256,9 +259,15 @@ public class Table {
      * @param cards - List representing the cards that will be placed.
      */
     public void placeCards(List<Integer> cards){
-        int numberOfslots = env.config.rows * env.config.columns;
+        // List of slots
+        List<Integer> slots = new ArrayList<>();
+        for (int i = 0; i < env.config.tableSize; i ++ )
+            slots.add(i);
+        // Shuffling so the placing will be random
+        Collections.shuffle(slots);
         int cardIndex = 0;
-        for (int slot = 0; slot < numberOfslots; slot++){
+        for (int i = 0; i < slots.size(); i++){
+            int slot = slots.get(i);
             if(slotToCard[slot] == null) {
                 placeCard(cards.get(cardIndex), slot);
                 cardIndex++;
@@ -275,20 +284,34 @@ public class Table {
         for (int i = 0; i < set.length; i++) {
             if(cardToSlot[set[i]] == null)
                 return false;
-            removeCard(set[i]);
+            removeCard(cardToSlot[set[i]]);
         }
         return true;
     }
 
+    
     /**
-     * The method removes all the cards from the table
+     * The method removes all cards from the table.
+     * @return - An array of the card Ids that were removed.
      */
-    public void removeAllCards() {
-        int numberOfslots = env.config.rows * env.config.columns;
-        for (int slot = 0; slot < numberOfslots; slot++) {
-            if(slotToCard[slot] != null)
+    public Integer[] removeAllCards() {
+        Integer[] cardsDeleted = new Integer[countCards()];
+        List<Integer> slots = new ArrayList<>();
+        for (int i = 0; i < env.config.tableSize; i ++ )
+            slots.add(i);
+        // Shuffling so the removing will be random
+        Collections.shuffle(slots);
+        int i = 0;
+        for (int j = 0; j < slots.size(); j++) {
+            int slot = slots.get(j);
+            Integer card = slotToCard[slot];
+            if(card != null){
                 removeCard(slot);
+                cardsDeleted[i] = card;
+                i++;
+            }
         }
+        return cardsDeleted;
     }
     
     /**
