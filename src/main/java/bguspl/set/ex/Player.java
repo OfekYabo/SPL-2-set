@@ -1,6 +1,12 @@
 package bguspl.set.ex;
 
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.CountDownLatch;
+
 import bguspl.set.Env;
+
+import java.util.Random;
+import java.util.concurrent.ArrayBlockingQueue;
 
 /**
  * This class manages the players' threads and data
@@ -50,6 +56,29 @@ public class Player implements Runnable {
      */
     private int score;
 
+    private int slot;
+
+    /*
+     * The dealer observer object for callbacks.
+     */
+    private DealerObserver dealerObserver;
+
+    /*
+     * true if point, false if penalty
+     */
+    private volatile boolean pointOrPaneltyFlag;
+ 
+    /*
+     * The queue of key presses.
+     */
+    private BlockingQueue<Integer> queue = null;
+
+    /**
+     * The timer diplay between changes (in milliseconds).
+     */
+    private final int displayTimeMillis = 1000;
+
+
     /**
      * The class constructor.
      *
@@ -60,10 +89,14 @@ public class Player implements Runnable {
      * @param human  - true iff the player is a human player (i.e. input is provided manually, via the keyboard).
      */
     public Player(Env env, Dealer dealer, Table table, int id, boolean human) {
+        //terminate = false;
         this.env = env;
         this.table = table;
         this.id = id;
         this.human = human;
+        score = 0;
+        dealerObserver = dealer;
+        queue = new ArrayBlockingQueue<Integer>(env.config.featureSize);
     }
 
     /**
@@ -74,9 +107,14 @@ public class Player implements Runnable {
         playerThread = Thread.currentThread();
         env.logger.info("thread " + Thread.currentThread().getName() + " starting.");
         if (!human) createArtificialIntelligence();
-
         while (!terminate) {
-            // TODO implement main player loop
+            try {
+                slot = queue.take();
+                act();
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                break;
+            }
         }
         if (!human) try { aiThread.join(); } catch (InterruptedException ignored) {}
         env.logger.info("thread " + Thread.currentThread().getName() + " terminated.");
@@ -92,9 +130,15 @@ public class Player implements Runnable {
             env.logger.info("thread " + Thread.currentThread().getName() + " starting.");
             while (!terminate) {
                 // TODO implement player key press simulator
+                Random random = new Random();
+                int randomSlot = random.nextInt(env.config.tableSize);
+                keyPressed(randomSlot);
+               /*
+                keyPressed(randome); 
                 try {
                     synchronized (this) { wait(); }
                 } catch (InterruptedException ignored) {}
+                */
             }
             env.logger.info("thread " + Thread.currentThread().getName() + " terminated.");
         }, "computer-" + id);
@@ -105,7 +149,8 @@ public class Player implements Runnable {
      * Called when the game should be terminated.
      */
     public void terminate() {
-        // TODO implement
+        //TODO implement
+        terminate = true;
     }
 
     /**
@@ -113,8 +158,10 @@ public class Player implements Runnable {
      *
      * @param slot - the slot corresponding to the key pressed.
      */
-    public void keyPressed(int slot) {
-        // TODO implement
+    public void keyPressed(int slot){
+        try {
+            queue.put(slot);
+        } catch (InterruptedException ignored){}
     }
 
     /**
@@ -124,7 +171,7 @@ public class Player implements Runnable {
      * @post - the player's score is updated in the ui.
      */
     public void point() {
-        // TODO implement
+        pointOrPaneltyFlag = true;
 
         int ignored = table.countCards(); // this part is just for demonstration in the unit tests
         env.ui.setScore(id, ++score);
@@ -134,10 +181,55 @@ public class Player implements Runnable {
      * Penalize a player and perform other related actions.
      */
     public void penalty() {
-        // TODO implement
+        pointOrPaneltyFlag = false;
     }
 
     public int score() {
         return score;
+    }
+
+
+
+    ///////////////////////
+    // **new functions** //
+    ///////////////////////
+
+    private void act() throws InterruptedException{
+        int tokens = table.placeOrRemoveToken(slot, id);
+        if (tokens == env.config.featureSize) {
+            try {
+                CountDownLatch latch = new CountDownLatch(1);
+                dealerObserver.onEventHappened(id, latch);
+                latch.await();
+                freeze();
+                // TODO implement clear queue maybe
+            }catch (InterruptedException e) {
+                throw e;
+            }
+        }
+    }
+
+
+    private void freeze() throws InterruptedException {
+        long wait = pointOrPaneltyFlag ? env.config.pointFreezeMillis : -env.config.penaltyFreezeMillis;
+        while (wait >= displayTimeMillis) {
+            try {
+                env.ui.setFreeze(id, wait);
+                Thread.sleep(displayTimeMillis);
+            } catch (InterruptedException e) {
+                throw e;
+            }
+            wait = wait - displayTimeMillis;
+        }
+        if (wait > 0 & wait <= displayTimeMillis) {
+            try {
+                env.ui.setFreeze(id, wait);
+                Thread.sleep(wait);
+            } catch (InterruptedException e) {
+                throw e;
+            }
+            wait = 0;
+        }
+        env.ui.setFreeze(id, wait);
     }
 }
