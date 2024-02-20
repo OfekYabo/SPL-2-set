@@ -183,16 +183,6 @@ public class Table {
 
     
     /**
-     * clears all the tokens from the table.
-     */
-    public void clearAllTokens () {
-        for (int id = 0; id < env.config.players; id++)
-            clearTokensOfPlayer(id);
-        env.ui.removeTokens();
-    }
-
-
-    /**
      * @param playerID - the player the set belong to.
      * @return - An array of integers representing the card IDs of the set, if it's illegal set size, return null.
      */
@@ -302,16 +292,6 @@ public class Table {
         return count;
     }
 
-    /**
-     * @param player - the player the tokens belong to.
-     * The method clears all the tokens placed by the player.
-     */
-    private void clearTokensOfPlayer (int player){
-        for (int slot = 0; slot < env.config.tableSize; slot++){
-            removeToken(slot, player);
-        }
-    }
-
     /** 
      * @param player - the player who placed the tokens
      * @return - list of card IDs the players placed his token on
@@ -347,6 +327,25 @@ public class Table {
 
     public Integer[] getCardtoSlot(){
         return this.cardToSlot;
+    }
+
+    /**
+     * clears all the tokens from the table.
+     
+    private void clearAllTokens () {
+        for (int id = 0; id < env.config.players; id++)
+            clearTokensOfPlayer(id);
+        env.ui.removeTokens();
+    }
+
+    /**
+     * @param player - the player the tokens belong to.
+     * The method clears all the tokens placed by the player.
+     
+    private void clearTokensOfPlayer (int player){
+        for (int slot = 0; slot < env.config.tableSize; slot++){
+            removeToken(slot, player);
+        }
     }
 
     */ 
