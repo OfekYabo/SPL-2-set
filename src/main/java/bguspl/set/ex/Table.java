@@ -167,6 +167,8 @@ public class Table {
      * @param slot - the slot on which to place the token.
      * @return - the amount of tokens the player has placed in the table after his action.
      */
+
+     //TODO change 3 in all the code to env.config.featureSize, also if you have more magicnumbers
     public int placeOrRemoveToken (int player, int slot) {
         int numOfTokens = numOfTokens(player);
         if(numOfTokens == 3 && !slotToToken[slot][player])
@@ -198,16 +200,16 @@ public class Table {
      * @return - list of card IDs the players placed his token on
      * @inv for each player : 0 <= getTokens(player).size() <= 3
      */
-    public Integer[] getTokenCards (int player) {
+    public List<Integer> getTokenCards (int player) {
         List<Integer> cards = new ArrayList<Integer>();
         for (int i = 0; i < slotToToken.length; i++) {
             if(slotToToken[i][player])
                 cards.add(slotToCard[i]);
         }
-        Integer[] arr = new Integer[cards.size()];
-        return cards.toArray(arr);
+        return cards;
     }
 
+    //TODO put all functions wich are called only internal as private and at the end of the class
     /**
      * clears all the tokens from the table.
      */
@@ -227,6 +229,7 @@ public class Table {
         }
     }
 
+    //TODO No One use this method, should be removed if no need 
     /**
      * @return - An array of placed cards on the table.
      */
@@ -240,12 +243,12 @@ public class Table {
         return cardsOnTable.toArray(arr);
     }
 
+    //TODO Notice: changed to List
     /**
-     * 
      * @param playerID - the player the set belong to.
      * @return - An array of integers representing the card IDs of the set, if it's illegal set size, return null.
      */
-    public Integer[] getPlayerSet(int playerID){
+    public List<Integer> getPlayerSet(int playerID){
         int size = numOfTokens(playerID);
         if(size != 3)
             return null;
@@ -275,8 +278,8 @@ public class Table {
         }
     }
 
+    //TODO tell me if you want me to pass List as parameter, if you want yo can change it and ill fix my code.
     /**
-     * 
      * @param set - an array representing a set of the player.
      * @return - 'true' - if the cards were removed accordingly, else return 'false'.
      */
@@ -289,12 +292,13 @@ public class Table {
         return true;
     }
 
-    
+    //TODO changed to List, fix the return value, try to work with foreach loop where you can
+
     /**
      * The method removes all cards from the table.
-     * @return - An array of the card Ids that were removed.
+     * @return - A List of the card Ids that were removed.
      */
-    public Integer[] removeAllCards() {
+    public List<Integer> removeAllCards() {
         Integer[] cardsDeleted = new Integer[countCards()];
         List<Integer> slots = new ArrayList<>();
         for (int i = 0; i < env.config.tableSize; i ++ )

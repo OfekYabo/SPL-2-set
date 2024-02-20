@@ -126,12 +126,13 @@ public class Dealer implements Runnable, DealerObserver {
     private void removeCardsFromTable() {
         if (immediateTask != null) {
             Player player = players[immediateTask.playerID];
-            int[] set = table.getPlayerSet(immediateTask.playerID);
-            if (set == null || !env.util.testSet(set)) {
+            List<Integer> set = table.getPlayerSet(immediateTask.playerID);
+            int[] setArray = set.stream().mapToInt(i->i).toArray();
+            if (set == null || !env.util.testSet(setArray)) {
                 player.penalty();
             } else {
                 updateTimerDisplay(true);
-                table.removeSet(set);
+                table.removeSet(setArray);
                 player.point();
             }
             immediateTask = null;
@@ -179,7 +180,7 @@ public class Dealer implements Runnable, DealerObserver {
      * Returns all the cards from the table to the deck.
      */
     private void removeAllCardsFromTable() {
-        Integer[] removedCards = table.removeAllCards();
+        List<Integer> removedCards = table.removeAllCards();
         for (int card : removedCards) deck.add(card);
     }
 
