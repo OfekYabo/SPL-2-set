@@ -154,16 +154,17 @@ public class Table {
     
     //only dealer call if correct set
     //return false if any fail
+    //set of cards
     public boolean removeSet(int[] set){
         //TODO implement
         return false;
     }
 
     //only dealer call
-    //return false if any fail
-    public boolean removeAllCards(){
+    //return all the cards back to dealer
+    public Integer[] removeAllCards(){
         //TODO implement
-        return false;
+        return null;
     }
 
 

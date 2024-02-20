@@ -8,6 +8,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import java.util.Collections;
 import java.util.LinkedList;
 /**
  * This class manages the dealer's threads and data
@@ -40,7 +41,14 @@ public class Dealer implements Runnable, DealerObserver {
      */
     private long reshuffleTime = Long.MAX_VALUE;
 
+    /**
+     * The max time to sleep because checking for a new set.
+     */
+    private final long sleepTime = 100;
+
     private BlockingQueue<PlayerTask> queue = new LinkedBlockingQueue<PlayerTask>();
+
+    PlayerTask immediateTask = null;
 
     private class PlayerTask {
         int playerID;
@@ -54,7 +62,7 @@ public class Dealer implements Runnable, DealerObserver {
 
 
     public Dealer(Env env, Table table, Player[] players) {
-        terminate = false;
+        //terminate = false;
         this.env = env;
         this.table = table;
         this.players = players;
@@ -67,18 +75,18 @@ public class Dealer implements Runnable, DealerObserver {
     @Override
     public void run() {
         env.logger.info("thread " + Thread.currentThread().getName() + " starting.");
-        for (Player player : players) {
-            Thread playerThread = new Thread(player, "Player: " + player.id);
-            playerThread.start();
-            env.logger.info("thread " + playerThread.getName() + " created.");
-        }
+        // create and start players threads
+        startPlayerThreads();
+        //dealer program loop
         while (!shouldFinish()) {
-            //shuffle the deck
+            Collections.shuffle(deck);
             placeCardsOnTable();
+            updateTimerDisplay(true);//reset the timer before start
             timerLoop();
             updateTimerDisplay(false);
             removeAllCardsFromTable();
         }
+        //TODO add terminate()
         announceWinners();
         env.logger.info("thread " + Thread.currentThread().getName() + " terminated.");
     }
@@ -99,6 +107,7 @@ public class Dealer implements Runnable, DealerObserver {
      * Called when the game should be terminated.
      */
     public void terminate() {
+        //TODO implement
         terminate = true;
     }
 
@@ -115,14 +124,25 @@ public class Dealer implements Runnable, DealerObserver {
      * Checks cards should be removed from the table and removes them.
      */
     private void removeCardsFromTable() {
-        // TODO implement
+        if (immediateTask != null) {
+            Player player = players[immediateTask.playerID];
+            int[] set = table.getPlayerSet(immediateTask.playerID);
+            if (set == null || !env.util.testSet(set)) {
+                player.penalty();
+            } else {
+                updateTimerDisplay(true);
+                table.removeSet(set);
+                player.point();
+            }
+            immediateTask = null;
+            immediateTask.latch.countDown();
+        }
     }
 
     /**
      * Check if any cards can be removed from the deck and placed on the table.
      */
     private void placeCardsOnTable() {
-        // TODO implement
         if (deck.size()>0){
             int cardsMiss = env.config.tableSize - table.countCards();
             if (cardsMiss > 0) {
@@ -137,23 +157,10 @@ public class Dealer implements Runnable, DealerObserver {
      * Sleep for a fixed amount of time or until the thread is awakened for some purpose.
      */
     private void sleepUntilWokenOrTimeout() {
-        while (!terminate && System.currentTimeMillis() < reshuffleTime) {  
-            try {
-                PlayerTask task = queue.take();
-                Player player = players[task.playerID];
-                int[] set = table.getPlayerSet(task.playerID);
-                if (set == null || !env.util.testSet(set)) {
-                    player.penalty();
-                } else {
-                    table.removeSet(set);
-                    placeCardsOnTable();
-                    player.point();
-                }
-                task.latch.countDown();
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                break;
-            }
+        try {
+            immediateTask = queue.poll(sleepTime, java.util.concurrent.TimeUnit.MILLISECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
         }
     }
 
@@ -161,21 +168,44 @@ public class Dealer implements Runnable, DealerObserver {
      * Reset and/or update the countdown and the countdown display.
      */
     private void updateTimerDisplay(boolean reset) {
-        // TODO implement
+        if (reset) {
+            reshuffleTime = System.currentTimeMillis() + env.config.turnTimeoutMillis;
+        }
+        long newTimeMillies = getTimeLeft();
+        env.ui.setCountdown(newTimeMillies, newTimeMillies <= env.config.turnTimeoutWarningMillis);
     }
 
     /**
      * Returns all the cards from the table to the deck.
      */
     private void removeAllCardsFromTable() {
-        table.removeAllCards();
+        Integer[] removedCards = table.removeAllCards();
+        for (int card : removedCards) deck.add(card);
     }
 
     /**
      * Check who is/are the winner/s and displays them.
      */
     private void announceWinners() {
-        // TODO implement
+        int bestScore = -1;
+        int numOfWinners = 0;
+        for (Player player : players){
+            int score = player.score();
+            if (bestScore < score){
+                bestScore = score;
+                numOfWinners = 1;
+            } else if(bestScore == score){
+                numOfWinners++;
+            }
+        }
+        int[] winners = new int[numOfWinners];
+        for (Player player : players){
+            if (player.score() == bestScore){
+                winners[numOfWinners-1] = player.id;
+                numOfWinners--;
+            }
+        } 
+        env.ui.announceWinner(winners);
     }
 
 
@@ -183,8 +213,31 @@ public class Dealer implements Runnable, DealerObserver {
     // **new functions** //
     ///////////////////////
 
-    
+    /*
+     * create and start the players threads
+     */
+    private void startPlayerThreads() {
+        for (Player player : players) {
+            Thread playerThread = new Thread(player, "Player: " + player.id);
+            playerThread.start();
+            env.logger.info("thread " + playerThread.getName() + " created.");
+        }
+    }
+
+    /*
+     * called by the player to notify the dealer that a set added to be checked
+     */
+    @Override
     public void onEventHappened(int playerID, CountDownLatch latch) throws InterruptedException {
             queue.put(new PlayerTask(playerID, latch));
+    }
+
+    /*
+     * returne the time left for the next reshuffle, always positiv
+     */
+    private long getTimeLeft(){
+        long current = reshuffleTime - System.currentTimeMillis();
+        if (current <= 0) return 0;
+        return current;
     }
 }
