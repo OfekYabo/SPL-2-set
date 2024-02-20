@@ -132,7 +132,7 @@ public class Dealer implements Runnable, DealerObserver {
                 player.penalty();
             } else {
                 updateTimerDisplay(true);
-                table.removeSet(setArray);
+                table.removeSet(set);
                 player.point();
             }
             immediateTask = null;
