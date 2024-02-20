@@ -2,7 +2,9 @@ package bguspl.set.ex;
 
 import bguspl.set.Env;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
@@ -30,6 +32,13 @@ public class Table {
     protected final Integer[] cardToSlot; // slot per card (if any)
 
     /**
+     * 2D boolean array that contains for each slot which players placed their token in that slot
+     * For example: if slotToToken[5][1] == 'true', it means that player_id 1 placed his token on slot No. 5
+     */
+
+    private boolean[][] slotToToken;
+
+    /**
      * Constructor for testing.
      *
      * @param env        - the game environment objects.
@@ -41,6 +50,7 @@ public class Table {
         this.env = env;
         this.slotToCard = slotToCard;
         this.cardToSlot = cardToSlot;
+        this.slotToToken = new boolean[env.config.rows * env.config.columns][env.config.players];
     }
 
     /**
@@ -93,8 +103,8 @@ public class Table {
 
         cardToSlot[card] = slot;
         slotToCard[slot] = card;
-
-        // TODO implement
+        
+        env.ui.placeCard(card, slot); 
     }
 
     /**
@@ -106,7 +116,17 @@ public class Table {
             Thread.sleep(env.config.tableDelayMillis);
         } catch (InterruptedException ignored) {}
 
-        // TODO implement
+        // Removing tokens from slot
+        for (int i = 0; i < slotToToken[slot].length; i++)
+            slotToToken[slot][i] = false;
+
+        if (slotToCard[slot] != null) {
+            int card = slotToCard[slot];
+            slotToCard[slot] = null;
+            cardToSlot[card] = null;
+            env.ui.removeTokens(slot);
+            env.ui.removeCard(slot);
+        }
     }
 
     /**
@@ -115,7 +135,10 @@ public class Table {
      * @param slot   - the slot on which to place the token.
      */
     public void placeToken(int player, int slot) {
-        // TODO implement
+        if (numOfTokens(player) < 3) {
+            slotToToken[slot][player] = true;
+            env.ui.placeToken(player, slot);
+        }
     }
 
     /**
@@ -125,49 +148,189 @@ public class Table {
      * @return       - true iff a token was successfully removed.
      */
     public boolean removeToken(int player, int slot) {
-        // TODO implement
+  
+        if(numOfTokens(player) != 0) {
+            slotToToken[slot][player] = false;
+            env.ui.removeToken(player, slot);
+            return true;
+        }
         return false;
     }
 
-    ///////////////////////
+    /**********************
     // **new functions** //
-    ///////////////////////
+    /**********************
 
-    //only dealer call
-    //if less or more than 3: return null
-    public int[] getPlayerSet(int playerID){
-        //TODO implement
-        return null;
-    }
-
-    //only player call
-    public int placeOrRemoveToken(int slot, int playerID){
-        //TODO implement
-        return 0;
+    /**
+     * 
+     * @param player - the player the token belongs to.
+     * @param slot - the slot on which to place the token.
+     * @return - the amount of tokens the player has placed in the table after his action.
+     */
+    public int placeOrRemoveToken (int player, int slot) {
+        int numOfTokens = numOfTokens(player);
+        if(numOfTokens == 3 && !slotToToken[slot][player])
+            return -1;
+        else if (slotToToken[slot][player])
+            removeToken(player, slot);
+        else
+            placeToken(player, slot);
+        return numOfTokens(player);
     }
     
-    //return false if any fail
-    public boolean placeCards(List<Integer> cards){
-        //TODO implement
-        return false;
+    /**
+     * 
+     * @param player - the player the tokens belong to.
+     * @return - the amount of tokens the player has placed in the table.
+     */
+
+     public int numOfTokens (int player) {
+        int count = 0;
+        for (int i = 0; i < slotToToken.length; i++) {
+            if(slotToToken[i][player])
+                count++;
+        }
+        return count;
     }
-    
-    //only dealer call if correct set
-    //return false if any fail
-    //set of cards
+
+    /** 
+     * @param player - the player who placed the tokens
+     * @return - list of card IDs the players placed his token on
+     * @inv for each player : 0 <= getTokens(player).size() <= 3
+     */
+    public Integer[] getTokenCards (int player) {
+        List<Integer> cards = new ArrayList<Integer>();
+        for (int i = 0; i < slotToToken.length; i++) {
+            if(slotToToken[i][player])
+                cards.add(slotToCard[i]);
+        }
+        Integer[] arr = new Integer[cards.size()];
+        return cards.toArray(arr);
+    }
+
+    /**
+     * clears all the tokens from the table.
+     */
+    public void clearAllTokens () {
+        for (int i = 0; i < env.config.players; i = i + 1)
+            clearTokensOfPlayer(i);
+        env.ui.removeTokens();
+    }
+
+    /**
+     * @param player - the player the tokens belong to.
+     * The method clears all the tokens placed by the player.
+     */
+    public void clearTokensOfPlayer (int player){
+        for (int slot = 0; slot < env.config.tableSize; slot++){
+            removeToken(slot, player);
+        }
+    }
+
+    /**
+     * @return - An array of placed cards on the table.
+     */
+    public Integer[] getCardsOnTable(){
+        List<Integer> cardsOnTable = new ArrayList<Integer>();
+        for (Integer card : slotToCard){
+            if (card != null)
+                cardsOnTable.add(card);
+        }
+        Integer[] arr = new Integer[cardsOnTable.size()];
+        return cardsOnTable.toArray(arr);
+    }
+
+    /**
+     * 
+     * @param playerID - the player the set belong to.
+     * @return - An array of integers representing the card IDs of the set, if it's illegal set size, return null.
+     */
+    public Integer[] getPlayerSet(int playerID){
+        int size = numOfTokens(playerID);
+        if(size != 3)
+            return null;
+        else {
+            return getTokenCards(playerID);
+        }
+    }
+
+    /**
+     * The method places an amount of cards on the table
+     * @param cards - List representing the cards that will be placed.
+     */
+    public void placeCards(List<Integer> cards){
+        // List of slots
+        List<Integer> slots = new ArrayList<>();
+        for (int i = 0; i < env.config.tableSize; i ++ )
+            slots.add(i);
+        // Shuffling so the placing will be random
+        Collections.shuffle(slots);
+        int cardIndex = 0;
+        for (int i = 0; i < slots.size(); i++){
+            int slot = slots.get(i);
+            if(slotToCard[slot] == null) {
+                placeCard(cards.get(cardIndex), slot);
+                cardIndex++;
+            }
+        }
+    }
+
+    /**
+     * 
+     * @param set - an array representing a set of the player.
+     * @return - 'true' - if the cards were removed accordingly, else return 'false'.
+     */
     public boolean removeSet(int[] set){
-        //TODO implement
-        return false;
+        for (int i = 0; i < set.length; i++) {
+            if(cardToSlot[set[i]] == null)
+                return false;
+            removeCard(cardToSlot[set[i]]);
+        }
+        return true;
     }
 
-    //only dealer call
-    //return all the cards back to dealer
-    public Integer[] removeAllCards(){
-        //TODO implement
-        return null;
+    
+    /**
+     * The method removes all cards from the table.
+     * @return - An array of the card Ids that were removed.
+     */
+    public Integer[] removeAllCards() {
+        Integer[] cardsDeleted = new Integer[countCards()];
+        List<Integer> slots = new ArrayList<>();
+        for (int i = 0; i < env.config.tableSize; i ++ )
+            slots.add(i);
+        // Shuffling so the removing will be random
+        Collections.shuffle(slots);
+        int i = 0;
+        for (int j = 0; j < slots.size(); j++) {
+            int slot = slots.get(j);
+            Integer card = slotToCard[slot];
+            if(card != null){
+                removeCard(slot);
+                cardsDeleted[i] = card;
+                i++;
+            }
+        }
+        return cardsDeleted;
+    }
+    
+    /**
+     * Simple getters
+     */
+
+    public Integer[] getSlotToCard(){
+        return this.slotToCard;
     }
 
+    public Integer[] getCardtoSlot(){
+        return this.cardToSlot;
+    }
 
+    public int getCard (int slot){
+        return slotToCard[slot];
+    }
 
-
+    public int getSlot (int card){
+        return cardToSlot[card];
+    }
 }

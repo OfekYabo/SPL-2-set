@@ -47,7 +47,7 @@ public class Player implements Runnable {
     private final boolean human;
 
     /**
-     * True iff game should be terminated.
+     * True iff game should be terminated, initialized false as default.
      */
     private volatile boolean terminate;
 
