@@ -55,13 +55,13 @@ public class Table {
      * @param slotToCard - mapping between a slot and the card placed in it (null if none).
      * @param cardToSlot - mapping between a card and the slot it is in (null if none).
      */
-    //TODO NOTICE: env.config.tableSize is available.
+
     public Table(Env env, Integer[] slotToCard, Integer[] cardToSlot) {
 
         this.env = env;
         this.slotToCard = slotToCard;
         this.cardToSlot = cardToSlot;
-        this.slotToToken = new boolean[env.config.rows * env.config.columns][env.config.players];
+        this.slotToToken = new boolean[env.config.tableSize][env.config.players];
         playerLocks = new Object[env.config.players];
         for (int i = 0; i < env.config.players; i++) playerLocks[i] = new Object();
     }
@@ -162,11 +162,10 @@ public class Table {
      ** write to slotToToken
      */
     public void placeToken(int player, int slot) {
-        if (numOfTokens(player) < env.config.featureSize) { //TODOnotice: i dont think we need extara check here, because you checked it in the function that calls this function. double check extra time
             slotToToken[slot][player] = true;
             env.ui.placeToken(player, slot);
-        }
     }
+    
 
     /**
      * Removes a token of a player from a grid slot.
@@ -178,8 +177,7 @@ public class Table {
      ** write to slotToToken
      */
     public boolean removeToken(int player, int slot) {
-        //TODO why do we need to check if the player has tokens? we just need to check that the specific is true, if not then return false. also we check it in the function before so i think no need to check at all, but can check because of tru/false.
-        if(numOfTokens(player) != 0) {
+        if(slotToToken[player][slot]) {
             slotToToken[slot][player] = false;
             env.ui.removeToken(player, slot);
             return true;
@@ -214,15 +212,18 @@ public class Table {
             int numOfTokens = numOfTokens(player);
             if(numOfTokens == env.config.featureSize && !slotToToken[slot][player])
                 return -1;
-            else if (slotToToken[slot][player])
+            else if (slotToToken[slot][player]){
                 removeToken(player, slot);
-            else
+                numOfTokens--;
+            }
+            else {
                 placeToken(player, slot);
-            return numOfTokens(player);//TODO save the first call to numOfTokens(player) and return it here + 1 or -1. faster. you can return in each condition and remove the else.
+                numOfTokens++;
+            }
+            return numOfTokens;
         }
     }
 
-    //TODO better to start with getTokenCards(playerID), if size is not correct then return null, no need double function call. 
     /**
      * @param playerID - the player the set belong to.
      * @return - An array of integers representing the card IDs of the set, if it's illegal set size, return null.
@@ -231,11 +232,11 @@ public class Table {
      ** read from all
      */
     public List<Integer> getPlayerSet(int playerID){
-        int size = numOfTokens(playerID);
-        if(size != env.config.featureSize)
+        List<Integer> tokenCards = getTokenCards(playerID);
+        if(tokenCards.size() != env.config.featureSize)
             return null;
         else {
-            return getTokenCards(playerID);
+            return tokenCards;
         }
     }
 
@@ -318,7 +319,7 @@ public class Table {
     /****************
      * Simple getters
      ****************/
-    //TODO why do we need private getters? usually getters are public to be used by other classes on private fields.
+
     private Integer getCard (int slot){
         return slotToCard[slot];
     }
@@ -339,7 +340,7 @@ public class Table {
      ** used by the player
      ** read from slotToToken 
      */
-    //TODO should be used onec in placeOrRemoveToken. no need for other methods.
+    
      private int numOfTokens (int player) {
         int count = 0;
         for (int slot = 0; slot < slotToToken.length; slot++) {
