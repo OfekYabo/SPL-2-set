@@ -113,7 +113,6 @@ public class Player implements Runnable {
                 act();
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
-                break;
             }
         }
         if (!human) try { aiThread.join(); } catch (InterruptedException ignored) {}
@@ -148,6 +147,7 @@ public class Player implements Runnable {
      */
     public void terminate() {
         terminate = true;
+        playerThread.interrupt();
         try {
             playerThread.join();
         } catch (InterruptedException ignored) {}
