@@ -194,7 +194,7 @@ public class Player implements Runnable {
     ///////////////////////
 
     private void act() throws InterruptedException{
-        int tokens = table.placeOrRemoveToken(slot, id);
+        int tokens = table.placeOrRemoveToken(id, slot);
         if (tokens == env.config.featureSize) {
             try {
                 CountDownLatch latch = new CountDownLatch(1);
