@@ -4,7 +4,6 @@ import bguspl.set.Env;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
@@ -39,18 +38,32 @@ public class Table {
     private boolean[][] slotToToken;
 
     /**
+     * An array of locks for each player.
+     */
+    private final Object[] playerLocks;
+
+    /**
+     * True iff the dealer is active.
+     */
+    private boolean dealerActive = false;
+
+
+    /**
      * Constructor for testing.
      *
      * @param env        - the game environment objects.
      * @param slotToCard - mapping between a slot and the card placed in it (null if none).
      * @param cardToSlot - mapping between a card and the slot it is in (null if none).
      */
+    //TODO NOTICE: env.config.tableSize is available.
     public Table(Env env, Integer[] slotToCard, Integer[] cardToSlot) {
 
         this.env = env;
         this.slotToCard = slotToCard;
         this.cardToSlot = cardToSlot;
         this.slotToToken = new boolean[env.config.rows * env.config.columns][env.config.players];
+        playerLocks = new Object[env.config.players];
+        for (int i = 0; i < env.config.players; i++) playerLocks[i] = new Object();
     }
 
     /**
@@ -78,6 +91,9 @@ public class Table {
 
     /**
      * Count the number of cards currently on the table.
+     * 
+     ** used by the dealer 
+     ** read from slotToCard
      *
      * @return - the number of cards on the table.
      */
@@ -93,6 +109,9 @@ public class Table {
      * Places a card on the table in a grid slot.
      * @param card - the card id to place in the slot.
      * @param slot - the slot in which the card should be placed.
+     * 
+     ** used by the dealer
+     ** write to slotToCard and cardToSlot
      *
      * @post - the card placed is on the table, in the assigned slot.
      */
@@ -111,6 +130,9 @@ public class Table {
     /**
      * Removes a card from a grid slot on the table.
      * @param slot - the slot from which to remove the card.
+     * 
+     ** used by the dealer
+     ** write to slotToCard and cardToSlot and slotToToken
      */
     public void removeCard(int slot) {
         try {
@@ -135,9 +157,12 @@ public class Table {
      * Places a player token on a grid slot.
      * @param player - the player the token belongs to.
      * @param slot   - the slot on which to place the token.
+     * 
+     ** used by the player
+     ** write to slotToToken
      */
     public void placeToken(int player, int slot) {
-        if (numOfTokens(player) < env.config.featureSize) {
+        if (numOfTokens(player) < env.config.featureSize) { //TODOnotice: i dont think we need extara check here, because you checked it in the function that calls this function. double check extra time
             slotToToken[slot][player] = true;
             env.ui.placeToken(player, slot);
         }
@@ -148,9 +173,12 @@ public class Table {
      * @param player - the player the token belongs to.
      * @param slot   - the slot from which to remove the token.
      * @return       - true iff a token was successfully removed.
+     * 
+     ** used by the player 
+     ** write to slotToToken
      */
     public boolean removeToken(int player, int slot) {
-  
+        //TODO why do we need to check if the player has tokens? we just need to check that the specific is true, if not then return false. also we check it in the function before so i think no need to check at all, but can check because of tru/false.
         if(numOfTokens(player) != 0) {
             slotToToken[slot][player] = false;
             env.ui.removeToken(player, slot);
@@ -168,23 +196,39 @@ public class Table {
      * @param player - the player the token belongs to.
      * @param slot - the slot on which to place the token.
      * @return - the amount of tokens the player has placed in the table after his action.
+     * 
+     ** used by the player
+     ** read and write to slotToToken 
      */
 
     public int placeOrRemoveToken (int player, int slot) {
-        int numOfTokens = numOfTokens(player);
-        if(numOfTokens == env.config.featureSize && !slotToToken[slot][player])
-            return -1;
-        else if (slotToToken[slot][player])
-            removeToken(player, slot);
-        else
-            placeToken(player, slot);
-        return numOfTokens(player);
+        synchronized(playerLocks[player]) {
+            while (dealerActive) {
+                try {
+                    playerLocks[player].wait();
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    return -1;
+                }
+            }
+            int numOfTokens = numOfTokens(player);
+            if(numOfTokens == env.config.featureSize && !slotToToken[slot][player])
+                return -1;
+            else if (slotToToken[slot][player])
+                removeToken(player, slot);
+            else
+                placeToken(player, slot);
+            return numOfTokens(player);//TODO save the first call to numOfTokens(player) and return it here + 1 or -1. faster. you can return in each condition and remove the else.
+        }
     }
 
-    
+    //TODO better to start with getTokenCards(playerID), if size is not correct then return null, no need double function call. 
     /**
      * @param playerID - the player the set belong to.
      * @return - An array of integers representing the card IDs of the set, if it's illegal set size, return null.
+     * 
+     ** used by the dealer
+     ** read from all
      */
     public List<Integer> getPlayerSet(int playerID){
         int size = numOfTokens(playerID);
@@ -199,58 +243,66 @@ public class Table {
     /**
      * The method places an amount of cards on the table
      * @param cards - List representing the cards that will be placed.
+     * 
+     ** used by the dealer
+     ** write to cardToSlot and slotToCard 
      */
-    public void placeCards(List<Integer> cards){
-
-        // List of slots
-        List<Integer> slots = new ArrayList<>();
-        for (int i = 0; i < env.config.tableSize; i ++ )
-            slots.add(i);
-
-        // Shuffling so the placing will be random
-        Collections.shuffle(slots);
+    public void placeCards(List<Integer> cards, List<Integer> slots){
+        // sync to all players locks
+        dealerActive = true;
+        for (Object playerLock : playerLocks) synchronized(playerLock) {}
 
         int cardIndex = 0;
-        for (int i = 0; i < slots.size(); i++){
+        for (int i = 0; i < slots.size() && cardIndex < cards.size(); i++){  // added extra must condition to avoid out of bound exception
             int slot = slots.get(i);
             if(getCard(slot) == null) {
                 placeCard(cards.get(cardIndex), slot);
                 cardIndex++;
             }
         }
+        
+        for (Object playerLock : playerLocks) { synchronized(playerLock) { playerLock.notify(); } } //release all wait players
     }
 
-    //TODO NOTICE: Changed to List, please amend it on your end.
     /**
      * @param set - an array representing a set of the player.
      * @return - 'true' - if the cards were removed accordingly, else return 'false'.
+     * 
+     ** used by the dealer
+     ** write to all
      */
     public boolean removeSet(List<Integer> set){
+        // sync to all players locks
+        dealerActive = true;
+        for (Object playerLock : playerLocks) synchronized(playerLock) {}
+
         for (Integer card : set) {
             Integer slot = getSlot(card);
-            if(slot == null)
+            if(slot == null){
+                for (Object playerLock : playerLocks) { synchronized(playerLock) { playerLock.notify(); } } //release all wait players
                 return false;
+            }
             removeCard(slot);
         }
+        
+        for (Object playerLock : playerLocks) { synchronized(playerLock) { playerLock.notify(); } } //release all wait players
         return true;
     }
 
     /**
      * The method removes all cards from the table.
+     * @slots - List of slots that will be removed.
      * @return - A List of the card Ids that were removed.
+     * 
+     ** used by the dealer
+     ** write to all
      */
-    public List<Integer> removeAllCards() {
+    public List<Integer> removeAllCards(List<Integer> slots) {
+        // sync to all players locks
+        dealerActive = true;
+        for (Object playerLock : playerLocks) synchronized(playerLock) {}
 
         List<Integer> cardsDeleted = new ArrayList<Integer>();
-        List<Integer> slots = new ArrayList<>();
-
-        // List of integers representing the slots
-        for (int slot = 0; slot < env.config.tableSize; slot++)
-            slots.add(slot);
-
-        // Shuffling so the removing will be random
-        Collections.shuffle(slots);
-
         for (Integer slot : slots) {
             Integer card = getCard(slot);
             if(card != null){
@@ -258,13 +310,15 @@ public class Table {
                 cardsDeleted.add(card);
             }
         }
+
+        for (Object playerLock : playerLocks) { synchronized(playerLock) { playerLock.notify(); } } //release all wait players
         return cardsDeleted;
     }
     
     /****************
      * Simple getters
      ****************/
-
+    //TODO why do we need private getters? usually getters are public to be used by other classes on private fields.
     private Integer getCard (int slot){
         return slotToCard[slot];
     }
@@ -281,14 +335,22 @@ public class Table {
      * 
      * @param player - the player the tokens belong to.
      * @return - the amount of tokens the player has placed in the table.
+     * 
+     ** used by the player
+     ** read from slotToToken 
      */
-
+    //TODO should be used onec in placeOrRemoveToken. no need for other methods.
      private int numOfTokens (int player) {
         int count = 0;
         for (int slot = 0; slot < slotToToken.length; slot++) {
             if(slotToToken[slot][player])
                 count++;
         }
+        /* suggestion using for-each loop
+         * for (boolean[] tokens : slotToToken)
+            if (tokens[player])
+                count++;
+         */
         return count;
     }
 
@@ -296,6 +358,9 @@ public class Table {
      * @param player - the player who placed the tokens
      * @return - list of card IDs the players placed his token on
      * @inv for each player : 0 <= getTokens(player).size() <= 3
+     * 
+     ** used by the dealer
+     ** read from slotToToken, cardToSlot, slotToCard  
      */
     private List<Integer> getTokenCards (int player) {
         List<Integer> cards = new ArrayList<Integer>();

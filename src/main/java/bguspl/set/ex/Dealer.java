@@ -8,6 +8,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedList;
 /**
@@ -86,7 +87,9 @@ public class Dealer implements Runnable, DealerObserver {
             updateTimerDisplay(false);
             removeAllCardsFromTable();
         }
-        //TODO add terminate()
+        if (!terminate) {
+            terminate();
+        }
         announceWinners();
         env.logger.info("thread " + Thread.currentThread().getName() + " terminated.");
     }
@@ -104,10 +107,12 @@ public class Dealer implements Runnable, DealerObserver {
     }
 
     /**
-     * Called when the game should be terminated.
+     * Called when the game should be terminated, by X button or by the game end conditions.
      */
     public void terminate() {
-        //TODO implement
+        for (Player player : players) {
+            player.terminate();
+        }
         terminate = true;
     }
 
@@ -127,16 +132,18 @@ public class Dealer implements Runnable, DealerObserver {
         if (immediateTask != null) {
             Player player = players[immediateTask.playerID];
             List<Integer> set = table.getPlayerSet(immediateTask.playerID);
-            int[] setArray = set.stream().mapToInt(i->i).toArray();
-            if (set == null || !env.util.testSet(setArray)) {
-                player.penalty();
-            } else {
-                updateTimerDisplay(true);
-                table.removeSet(set);
-                player.point();
+            if (set != null) {
+                int[] setArray = set.stream().mapToInt(i->i).toArray();
+                if (!env.util.testSet(setArray)) {
+                    player.penalty();
+                } else {
+                    table.removeSet(set);
+                    updateTimerDisplay(true);
+                    player.point();
+                }
             }
-            immediateTask = null;
             immediateTask.latch.countDown();
+            immediateTask = null;
         }
     }
 
@@ -149,7 +156,7 @@ public class Dealer implements Runnable, DealerObserver {
             if (cardsMiss > 0) {
                 List<Integer> cards = new LinkedList<Integer>();
                 for (int i = 0; i<cardsMiss & deck.size()>0; i++) cards.add(deck.remove(0));
-                table.placeCards(cards);
+                table.placeCards(cards, getShuffeledSlots());
             }
         }
     }
@@ -180,7 +187,7 @@ public class Dealer implements Runnable, DealerObserver {
      * Returns all the cards from the table to the deck.
      */
     private void removeAllCardsFromTable() {
-        List<Integer> removedCards = table.removeAllCards();
+        List<Integer> removedCards = table.removeAllCards(getShuffeledSlots());
         for (int card : removedCards) deck.add(card);
     }
 
@@ -240,5 +247,15 @@ public class Dealer implements Runnable, DealerObserver {
         long current = reshuffleTime - System.currentTimeMillis();
         if (current <= 0) return 0;
         return current;
+    }
+
+    /*
+     * returne a list of shuffeled slots
+     */
+    private List<Integer> getShuffeledSlots(){
+        List<Integer> slots = new ArrayList<Integer>();
+        for (int slot = 0; slot < env.config.tableSize; slot++) slots.add(slot);
+        Collections.shuffle(slots);
+        return slots;
     }
 }
