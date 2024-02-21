@@ -66,7 +66,7 @@ public class Player implements Runnable {
     /*
      * true if point, false if penalty
      */
-    private volatile boolean pointOrPaneltyFlag;
+    private volatile int pointOrPaneltyFlag = 0;
  
     /*
      * The queue of key presses.
@@ -129,16 +129,13 @@ public class Player implements Runnable {
         aiThread = new Thread(() -> {
             env.logger.info("thread " + Thread.currentThread().getName() + " starting.");
             while (!terminate) {
-                // TODO implement player key press simulator
                 Random random = new Random();
                 int randomSlot = random.nextInt(env.config.tableSize);
                 keyPressed(randomSlot);
-               /*
-                keyPressed(randome); 
-                try {
+
+               /*try {
                     synchronized (this) { wait(); }
-                } catch (InterruptedException ignored) {}
-                */
+                } catch (InterruptedException ignored) {}*/
             }
             env.logger.info("thread " + Thread.currentThread().getName() + " terminated.");
         }, "computer-" + id);
@@ -147,10 +144,13 @@ public class Player implements Runnable {
 
     /**
      * Called when the game should be terminated.
+     * Called by the dealer thread. 
      */
     public void terminate() {
-        //TODO implement
         terminate = true;
+        try {
+            playerThread.join();
+        } catch (InterruptedException ignored) {}
     }
 
     /**
@@ -171,9 +171,9 @@ public class Player implements Runnable {
      * @post - the player's score is updated in the ui.
      */
     public void point() {
-        pointOrPaneltyFlag = true;
+        pointOrPaneltyFlag = 1;
 
-        int ignored = table.countCards(); // this part is just for demonstration in the unit tests
+        //int ignored = table.countCards(); // this part is just for demonstration in the unit tests
         env.ui.setScore(id, ++score);
     }
 
@@ -181,13 +181,12 @@ public class Player implements Runnable {
      * Penalize a player and perform other related actions.
      */
     public void penalty() {
-        pointOrPaneltyFlag = false;
+        pointOrPaneltyFlag = -1;
     }
 
     public int score() {
         return score;
     }
-
 
 
     ///////////////////////
@@ -202,7 +201,7 @@ public class Player implements Runnable {
                 dealerObserver.onEventHappened(id, latch);
                 latch.await();
                 freeze();
-                // TODO implement clear queue maybe
+                queue.clear();
             }catch (InterruptedException e) {
                 throw e;
             }
@@ -211,25 +210,28 @@ public class Player implements Runnable {
 
 
     private void freeze() throws InterruptedException {
-        long wait = pointOrPaneltyFlag ? env.config.pointFreezeMillis : -env.config.penaltyFreezeMillis;
-        while (wait >= displayTimeMillis) {
-            try {
-                env.ui.setFreeze(id, wait);
-                Thread.sleep(displayTimeMillis);
-            } catch (InterruptedException e) {
-                throw e;
+        if (pointOrPaneltyFlag != 0){
+            long wait = pointOrPaneltyFlag == 1 ? env.config.pointFreezeMillis : -env.config.penaltyFreezeMillis;
+            while (wait >= displayTimeMillis) {
+                try {
+                    env.ui.setFreeze(id, wait);
+                    Thread.sleep(displayTimeMillis);
+                } catch (InterruptedException e) {
+                    throw e;
+                }
+                wait = wait - displayTimeMillis;
             }
-            wait = wait - displayTimeMillis;
-        }
-        if (wait > 0 & wait <= displayTimeMillis) {
-            try {
-                env.ui.setFreeze(id, wait);
-                Thread.sleep(wait);
-            } catch (InterruptedException e) {
-                throw e;
+            if (wait > 0 & wait <= displayTimeMillis) {
+                try {
+                    env.ui.setFreeze(id, wait);
+                    Thread.sleep(wait);
+                } catch (InterruptedException e) {
+                    throw e;
+                }
+                wait = 0;
             }
-            wait = 0;
+            pointOrPaneltyFlag = 0;
+            env.ui.setFreeze(id, wait);
         }
-        env.ui.setFreeze(id, wait);
     }
 }
