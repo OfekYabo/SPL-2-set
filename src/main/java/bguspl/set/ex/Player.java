@@ -211,7 +211,7 @@ public class Player implements Runnable {
 
     private void freeze() throws InterruptedException {
         if (pointOrPaneltyFlag != 0){
-            long wait = pointOrPaneltyFlag == 1 ? env.config.pointFreezeMillis : -env.config.penaltyFreezeMillis;
+            long wait = pointOrPaneltyFlag == 1 ? env.config.pointFreezeMillis : env.config.penaltyFreezeMillis;
             while (wait >= displayTimeMillis) {
                 try {
                     env.ui.setFreeze(id, wait);

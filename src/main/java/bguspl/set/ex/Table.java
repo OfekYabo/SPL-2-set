@@ -262,6 +262,7 @@ public class Table {
             }
         }
         
+        dealerActive = false;
         for (Object playerLock : playerLocks) { synchronized(playerLock) { playerLock.notify(); } } //release all wait players
     }
 
@@ -286,6 +287,7 @@ public class Table {
             removeCard(slot);
         }
         
+        dealerActive = false;
         for (Object playerLock : playerLocks) { synchronized(playerLock) { playerLock.notify(); } } //release all wait players
         return true;
     }
@@ -312,6 +314,7 @@ public class Table {
             }
         }
 
+        dealerActive = false;
         for (Object playerLock : playerLocks) { synchronized(playerLock) { playerLock.notify(); } } //release all wait players
         return cardsDeleted;
     }
