@@ -177,7 +177,7 @@ public class Table {
      ** write to slotToToken
      */
     public boolean removeToken(int player, int slot) {
-        if(slotToToken[player][slot]) {
+        if(slotToToken[slot][player]) {
             slotToToken[slot][player] = false;
             env.ui.removeToken(player, slot);
             return true;
