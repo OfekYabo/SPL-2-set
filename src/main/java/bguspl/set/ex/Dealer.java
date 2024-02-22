@@ -40,12 +40,12 @@ public class Dealer implements Runnable, DealerObserver {
     /**
      * The time when the dealer needs to reshuffle the deck due to turn timeout.
      */
-    private long reshuffleTime = Long.MAX_VALUE;
+    private long reshuffleTime = Long.MAX_VALUE; 
 
     /**
      * The max time to sleep because checking for a new set.
      */
-    private final long sleepTime = 100;
+    private final long sleepTime = 100; //TODO is this considered a magic number? is there a way to set it from the config?
 
     private BlockingQueue<PlayerTask> queue = new LinkedBlockingQueue<PlayerTask>();
 
@@ -87,9 +87,8 @@ public class Dealer implements Runnable, DealerObserver {
             updateTimerDisplay(false);
             removeAllCardsFromTable();
         }
-        if (!terminate) {
+        if (!terminate) 
             terminate();
-        }
         announceWinners();
         env.logger.info("thread " + Thread.currentThread().getName() + " terminated.");
     }
@@ -134,9 +133,9 @@ public class Dealer implements Runnable, DealerObserver {
             List<Integer> set = table.getPlayerSet(immediateTask.playerID);
             if (set != null) {
                 int[] setArray = set.stream().mapToInt(i->i).toArray();
-                if (!env.util.testSet(setArray)) {
+                if (!env.util.testSet(setArray))
                     player.penalty();
-                } else {
+                else {
                     table.removeSet(set);
                     updateTimerDisplay(true);
                     player.point();
@@ -151,11 +150,12 @@ public class Dealer implements Runnable, DealerObserver {
      * Check if any cards can be removed from the deck and placed on the table.
      */
     private void placeCardsOnTable() {
-        if (deck.size()>0){
+        if (deck.size() > 0){
             int cardsMiss = env.config.tableSize - table.countCards();
             if (cardsMiss > 0) {
                 List<Integer> cards = new LinkedList<Integer>();
-                for (int i = 0; i<cardsMiss & deck.size()>0; i++) cards.add(deck.remove(0));
+                for (int i = 0; i<cardsMiss & deck.size() > 0; i++) 
+                    cards.add(deck.remove(0));
                 table.placeCards(cards, getShuffeledSlots());
             }
         }
@@ -188,7 +188,8 @@ public class Dealer implements Runnable, DealerObserver {
      */
     private void removeAllCardsFromTable() {
         List<Integer> removedCards = table.removeAllCards(getShuffeledSlots());
-        for (int card : removedCards) deck.add(card);
+        for (int card : removedCards) 
+            deck.add(card);
     }
 
     /**
@@ -202,13 +203,13 @@ public class Dealer implements Runnable, DealerObserver {
             if (bestScore < score){
                 bestScore = score;
                 numOfWinners = 1;
-            } else if(bestScore == score){
-                numOfWinners++;
             }
+            else if (bestScore == score)
+                numOfWinners++;
         }
         int[] winners = new int[numOfWinners];
-        for (Player player : players){
-            if (player.score() == bestScore){
+        for (Player player : players) {
+            if (player.score() == bestScore) {
                 winners[numOfWinners-1] = player.id;
                 numOfWinners--;
             }
@@ -241,20 +242,22 @@ public class Dealer implements Runnable, DealerObserver {
     }
 
     /*
-     * returne the time left for the next reshuffle, always positiv
+     * returns the time left for the next reshuffle, always positive
      */
     private long getTimeLeft(){
         long current = reshuffleTime - System.currentTimeMillis();
-        if (current <= 0) return 0;
+        if (current <= 0) 
+            return 0;
         return current;
     }
 
     /*
-     * returne a list of shuffeled slots
+     * returns a list of shuffeled slots
      */
     private List<Integer> getShuffeledSlots(){
         List<Integer> slots = new ArrayList<Integer>();
-        for (int slot = 0; slot < env.config.tableSize; slot++) slots.add(slot);
+        for (int slot = 0; slot < env.config.tableSize; slot++) 
+            slots.add(slot);
         Collections.shuffle(slots);
         return slots;
     }

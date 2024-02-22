@@ -77,7 +77,7 @@ public class Table {
     }
 
     /**
-     * This method prints all possible legal sets of cards that are currently on the table.
+     * This method prints all possible legal sets of cards that are currently on the table. //TODO Is this something we need to call in our program? are we instructed to do so in the assignment somewhere?
      */
     public void hints() {
         List<Integer> deck = Arrays.stream(slotToCard).filter(Objects::nonNull).collect(Collectors.toList());
@@ -251,7 +251,7 @@ public class Table {
     public void placeCards(List<Integer> cards, List<Integer> slots){
         // sync to all players locks
         dealerActive = true;
-        for (Object playerLock : playerLocks) synchronized(playerLock) {}
+        for (Object playerLock : playerLocks) synchronized(playerLock) {} //TODO What this does actually? there are no calls in the synchronized scope so what needs to be synchronized here?. same for removeSet and removeAllCards
 
         int cardIndex = 0;
         for (int i = 0; i < slots.size() && cardIndex < cards.size(); i++){  // added extra must condition to avoid out of bound exception
@@ -261,7 +261,6 @@ public class Table {
                 cardIndex++;
             }
         }
-        
         dealerActive = false;
         for (Object playerLock : playerLocks) { synchronized(playerLock) { playerLock.notify(); } } //release all wait players
     }
@@ -276,7 +275,7 @@ public class Table {
     public boolean removeSet(List<Integer> set){
         // sync to all players locks
         dealerActive = true;
-        for (Object playerLock : playerLocks) synchronized(playerLock) {}
+        for (Object playerLock : playerLocks) synchronized(playerLock) {} 
 
         for (Integer card : set) {
             Integer slot = getSlot(card);
@@ -286,7 +285,6 @@ public class Table {
             }
             removeCard(slot);
         }
-        
         dealerActive = false;
         for (Object playerLock : playerLocks) { synchronized(playerLock) { playerLock.notify(); } } //release all wait players
         return true;
@@ -303,7 +301,7 @@ public class Table {
     public List<Integer> removeAllCards(List<Integer> slots) {
         // sync to all players locks
         dealerActive = true;
-        for (Object playerLock : playerLocks) synchronized(playerLock) {}
+        for (Object playerLock : playerLocks) synchronized(playerLock) {} 
 
         List<Integer> cardsDeleted = new ArrayList<Integer>();
         for (Integer slot : slots) {
@@ -346,15 +344,10 @@ public class Table {
     
      private int numOfTokens (int player) {
         int count = 0;
-        for (int slot = 0; slot < slotToToken.length; slot++) {
-            if(slotToToken[slot][player])
-                count++;
-        }
-        /* suggestion using for-each loop
-         * for (boolean[] tokens : slotToToken)
+        for (boolean[] tokens : slotToToken) {
             if (tokens[player])
                 count++;
-         */
+        }
         return count;
     }
 
@@ -375,47 +368,4 @@ public class Table {
         return cards;
     }
 
-
-    //TODO No one use these methods, should be removed if no need 
-    /**
-     * @return - An array of placed cards on the table.
-     */
-   /* public Integer[] getCardsOnTable(){
-        List<Integer> cardsOnTable = new ArrayList<Integer>();
-        for (Integer card : slotToCard){
-            if (card != null)
-                cardsOnTable.add(card);
-        }
-        Integer[] arr = new Integer[cardsOnTable.size()];
-        return cardsOnTable.toArray(arr);
-    }
-
-    public Integer[] getSlotToCard(){
-        return this.slotToCard;
-    }
-
-    public Integer[] getCardtoSlot(){
-        return this.cardToSlot;
-    }
-
-    /**
-     * clears all the tokens from the table.
-     
-    private void clearAllTokens () {
-        for (int id = 0; id < env.config.players; id++)
-            clearTokensOfPlayer(id);
-        env.ui.removeTokens();
-    }
-
-    /**
-     * @param player - the player the tokens belong to.
-     * The method clears all the tokens placed by the player.
-     
-    private void clearTokensOfPlayer (int player){
-        for (int slot = 0; slot < env.config.tableSize; slot++){
-            removeToken(slot, player);
-        }
-    }
-
-    */ 
 }

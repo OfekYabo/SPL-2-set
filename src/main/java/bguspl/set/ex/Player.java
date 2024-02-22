@@ -76,7 +76,7 @@ public class Player implements Runnable {
     /**
      * The timer diplay between changes (in milliseconds).
      */
-    private final int displayTimeMillis = 1000;
+    private final int displayTimeMillis = 1000; //TODO is this considered a magic number? is there a way to set it from the config? 
 
 
     /**
@@ -134,7 +134,7 @@ public class Player implements Runnable {
 
                /*try {
                     synchronized (this) { wait(); }
-                } catch (InterruptedException ignored) {}*/
+                } catch (InterruptedException ignored) {}*/ //TODO is this nessecary? delete it if not
             }
             env.logger.info("thread " + Thread.currentThread().getName() + " terminated.");
         }, "computer-" + id);
@@ -172,8 +172,6 @@ public class Player implements Runnable {
      */
     public void point() {
         pointOrPaneltyFlag = 1;
-
-        //int ignored = table.countCards(); // this part is just for demonstration in the unit tests
         env.ui.setScore(id, ++score);
     }
 
@@ -189,9 +187,9 @@ public class Player implements Runnable {
     }
 
 
-    ///////////////////////
+    /*********************/
     // **new functions** //
-    ///////////////////////
+    /*********************/
 
     private void act() throws InterruptedException{
         int tokens = table.placeOrRemoveToken(id, slot);
