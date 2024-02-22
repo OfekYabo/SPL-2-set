@@ -89,7 +89,7 @@ public class Player implements Runnable {
      * @param human  - true iff the player is a human player (i.e. input is provided manually, via the keyboard).
      */
     public Player(Env env, Dealer dealer, Table table, int id, boolean human) {
-        //terminate = false;
+        terminate = false;
         this.env = env;
         this.table = table;
         this.id = id;
