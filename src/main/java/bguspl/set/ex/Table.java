@@ -31,11 +31,18 @@ public class Table {
     protected final Integer[] cardToSlot; // slot per card (if any)
 
     /**
-     * 2D boolean array that contains for each slot which players placed their token in that slot
-     * For example: if slotToToken[5][1] == 'true', it means that player_id 1 placed his token on slot No. 5
+     * The state of the token in the slot.
      */
+    public enum TokenState {
+        EMPTY,
+        FULL,
+        UNABLE
+    }
 
-    private boolean[][] slotToToken;
+    /**
+     * Mapping between a slot and the token state placed in it for each player.
+     */
+    private TokenState[][] slotToToken;
 
     /**
      * An array of locks for each player.
@@ -61,7 +68,7 @@ public class Table {
         this.env = env;
         this.slotToCard = slotToCard;
         this.cardToSlot = cardToSlot;
-        this.slotToToken = new boolean[env.config.tableSize][env.config.players];
+        this.slotToToken = new TokenState[env.config.tableSize][env.config.players];
         playerLocks = new Object[env.config.players];
         for (int i = 0; i < env.config.players; i++) playerLocks[i] = new Object();
     }
@@ -122,7 +129,9 @@ public class Table {
 
         cardToSlot[card] = slot;
         slotToCard[slot] = card;
-        
+        for (int i = 0; i < slotToToken[slot].length; i++) {
+            slotToToken[slot][i] = TokenState.EMPTY;
+        }
         // Placing the card in UI
         env.ui.placeCard(card, slot); 
     }
@@ -140,8 +149,9 @@ public class Table {
         } catch (InterruptedException ignored) {}
 
         // Removing tokens from slot
-        for (int i = 0; i < slotToToken[slot].length; i++)
-            slotToToken[slot][i] = false;
+        for (int i = 0; i < slotToToken[slot].length; i++) {
+            slotToToken[slot][i] = TokenState.UNABLE;
+        }
 
         // Removing the card
         if (slotToCard[slot] != null) {
@@ -162,7 +172,7 @@ public class Table {
      ** write to slotToToken
      */
     public void placeToken(int player, int slot) {
-            slotToToken[slot][player] = true;
+            slotToToken[slot][player] = TokenState.FULL;
             env.ui.placeToken(player, slot);
     }
     
@@ -177,8 +187,8 @@ public class Table {
      ** write to slotToToken
      */
     public boolean removeToken(int player, int slot) {
-        if(slotToToken[slot][player]) {
-            slotToToken[slot][player] = false;
+        if(slotToToken[slot][player] == TokenState.FULL) {
+            slotToToken[slot][player] = TokenState.EMPTY;
             env.ui.removeToken(player, slot);
             return true;
         }
@@ -210,9 +220,9 @@ public class Table {
                 }
             }
             int numOfTokens = numOfTokens(player);
-            if(numOfTokens == env.config.featureSize && !slotToToken[slot][player])
+            if(slotToToken[slot][player] == TokenState.UNABLE || (numOfTokens == env.config.featureSize && slotToToken[slot][player] == TokenState.EMPTY))
                 return -1;
-            else if (slotToToken[slot][player]){
+            else if (slotToToken[slot][player] == TokenState.FULL){
                 removeToken(player, slot);
                 numOfTokens--;
             }
@@ -249,10 +259,11 @@ public class Table {
      ** write to cardToSlot and slotToCard 
      */
     public void placeCards(List<Integer> cards, List<Integer> slots){
-        // sync to all players locks
-        dealerActive = true;
-        for (Object playerLock : playerLocks) synchronized(playerLock) {}
-
+        // sync to all players locks if not already active
+        if (!dealerActive){
+            dealerActive = true;
+            for (Object playerLock : playerLocks) synchronized(playerLock) {}
+        }
         int cardIndex = 0;
         for (int i = 0; i < slots.size() && cardIndex < cards.size(); i++){  // added extra must condition to avoid out of bound exception
             int slot = slots.get(i);
@@ -264,6 +275,7 @@ public class Table {
         
         dealerActive = false;
         for (Object playerLock : playerLocks) { synchronized(playerLock) { playerLock.notify(); } } //release all wait players
+        if(env.config.hints & cards.size() > 0) hints();//print hints if set in config
     }
 
     /**
@@ -281,14 +293,11 @@ public class Table {
         for (Integer card : set) {
             Integer slot = getSlot(card);
             if(slot == null){
-                for (Object playerLock : playerLocks) { synchronized(playerLock) { playerLock.notify(); } } //release all wait players
                 return false;
             }
             removeCard(slot);
         }
-        
-        dealerActive = false;
-        for (Object playerLock : playerLocks) { synchronized(playerLock) { playerLock.notify(); } } //release all wait players
+        // release all wait players will be done in the placeCards method
         return true;
     }
 
@@ -313,9 +322,7 @@ public class Table {
                 cardsDeleted.add(card);
             }
         }
-
-        dealerActive = false;
-        for (Object playerLock : playerLocks) { synchronized(playerLock) { playerLock.notify(); } } //release all wait players
+        // release all wait players will be done in the placeCards method   
         return cardsDeleted;
     }
     
@@ -347,14 +354,9 @@ public class Table {
      private int numOfTokens (int player) {
         int count = 0;
         for (int slot = 0; slot < slotToToken.length; slot++) {
-            if(slotToToken[slot][player])
+            if(slotToToken[slot][player] == TokenState.FULL)
                 count++;
         }
-        /* suggestion using for-each loop
-         * for (boolean[] tokens : slotToToken)
-            if (tokens[player])
-                count++;
-         */
         return count;
     }
 
@@ -369,7 +371,7 @@ public class Table {
     private List<Integer> getTokenCards (int player) {
         List<Integer> cards = new ArrayList<Integer>();
         for (int slot = 0; slot < slotToToken.length; slot++) {
-            if(slotToToken[slot][player])
+            if(slotToToken[slot][player] == TokenState.FULL)
                 cards.add(getCard(slot));
         }
         return cards;

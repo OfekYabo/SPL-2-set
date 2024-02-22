@@ -43,10 +43,13 @@ public class Dealer implements Runnable, DealerObserver {
     private long reshuffleTime = Long.MAX_VALUE;
 
     /**
-     * The max time to sleep because checking for a new set.
+     * True iff the dealer should create and start the players threads once.
      */
-    private final long sleepTime = 100;
+    private boolean createPlayerThreads;
 
+    /**
+     * The queue of player tasks to be executed by the dealer.
+     */
     private BlockingQueue<PlayerTask> queue = new LinkedBlockingQueue<PlayerTask>();
 
     PlayerTask immediateTask = null;
@@ -63,7 +66,8 @@ public class Dealer implements Runnable, DealerObserver {
 
 
     public Dealer(Env env, Table table, Player[] players) {
-        //terminate = false;
+        terminate = false;
+        createPlayerThreads = true;
         this.env = env;
         this.table = table;
         this.players = players;
@@ -76,13 +80,12 @@ public class Dealer implements Runnable, DealerObserver {
     @Override
     public void run() {
         env.logger.info("thread " + Thread.currentThread().getName() + " starting.");
-        // create and start players threads
-        startPlayerThreads();
         //dealer program loop
         while (!shouldFinish()) {
             Collections.shuffle(deck);
             placeCardsOnTable();
             updateTimerDisplay(true);//reset the timer before start
+            startPlayerThreads();// create and start players threads once.
             timerLoop();
             updateTimerDisplay(false);
             removeAllCardsFromTable();
@@ -151,14 +154,14 @@ public class Dealer implements Runnable, DealerObserver {
      * Check if any cards can be removed from the deck and placed on the table.
      */
     private void placeCardsOnTable() {
+        List<Integer> cards = new LinkedList<Integer>();
         if (deck.size()>0){
             int cardsMiss = env.config.tableSize - table.countCards();
             if (cardsMiss > 0) {
-                List<Integer> cards = new LinkedList<Integer>();
                 for (int i = 0; i<cardsMiss & deck.size()>0; i++) cards.add(deck.remove(0));
-                table.placeCards(cards, getShuffeledSlots());
             }
         }
+        table.placeCards(cards, getShuffeledSlots());
     }
 
     /**
@@ -166,7 +169,7 @@ public class Dealer implements Runnable, DealerObserver {
      */
     private void sleepUntilWokenOrTimeout() {
         try {
-            immediateTask = queue.poll(sleepTime, java.util.concurrent.TimeUnit.MILLISECONDS);
+            immediateTask = queue.poll(getSleepTime(), java.util.concurrent.TimeUnit.MILLISECONDS);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
@@ -180,7 +183,7 @@ public class Dealer implements Runnable, DealerObserver {
             reshuffleTime = System.currentTimeMillis() + env.config.turnTimeoutMillis;
         }
         long newTimeMillies = getTimeLeft();
-        env.ui.setCountdown(newTimeMillies, newTimeMillies <= env.config.turnTimeoutWarningMillis);
+        env.ui.setCountdown(newTimeMillies-1, newTimeMillies <= env.config.turnTimeoutWarningMillis);
     }
 
     /**
@@ -225,10 +228,13 @@ public class Dealer implements Runnable, DealerObserver {
      * create and start the players threads
      */
     private void startPlayerThreads() {
-        for (Player player : players) {
-            Thread playerThread = new Thread(player, "Player: " + player.id);
-            playerThread.start();
-            env.logger.info("thread " + playerThread.getName() + " created.");
+        if (createPlayerThreads){
+            for (Player player : players) {
+                Thread playerThread = new Thread(player, "Player: " + player.id + 1);
+                playerThread.start();
+                env.logger.info("thread " + playerThread.getName() + " created.");
+            }
+            createPlayerThreads = false;
         }
     }
 
@@ -245,8 +251,17 @@ public class Dealer implements Runnable, DealerObserver {
      */
     private long getTimeLeft(){
         long current = reshuffleTime - System.currentTimeMillis();
-        if (current <= 0) return 0;
+        if (current <= 0) return 1;
         return current;
+    }
+
+    /*
+     * returne the time to sleep
+     */
+    private long getSleepTime(){
+        if (getTimeLeft() < env.config.turnTimeoutWarningMillis) 
+            return 100;
+        return getTimeLeft()%1000;
     }
 
     /*
