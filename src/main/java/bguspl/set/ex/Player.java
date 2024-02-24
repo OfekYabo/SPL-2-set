@@ -130,11 +130,7 @@ public class Player implements Runnable {
             while (!terminate) {
                 Random random = new Random();
                 int randomSlot = random.nextInt(env.config.tableSize);
-                keyPressed(randomSlot);
-
-               /*try {
-                    synchronized (this) { wait(); }
-                } catch (InterruptedException ignored) {}*/
+                AiKeyPressed(randomSlot);
             }
             env.logger.info("thread " + Thread.currentThread().getName() + " terminated.");
         }, "computer-" + id);
@@ -159,9 +155,9 @@ public class Player implements Runnable {
      * @param slot - the slot corresponding to the key pressed.
      */
     public void keyPressed(int slot){
-        try {
-            queue.put(slot);
-        } catch (InterruptedException ignored){}
+        if (human) {
+                queue.offer(slot);
+        }
     }
 
     /**
@@ -233,5 +229,11 @@ public class Player implements Runnable {
             pointOrPaneltyFlag = 0;
             env.ui.setFreeze(id, wait);
         }
+    }
+
+    private void AiKeyPressed(int slot){
+        try {
+            queue.put(slot);
+        } catch (InterruptedException ignored){}
     }
 }
