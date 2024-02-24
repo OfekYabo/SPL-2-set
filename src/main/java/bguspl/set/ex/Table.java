@@ -30,19 +30,11 @@ public class Table {
      */
     protected final Integer[] cardToSlot; // slot per card (if any)
 
-    /**
-     * The state of the token in the slot.
-     */
-    public enum TokenState {
-        EMPTY,
-        FULL,
-        UNABLE
-    }
 
     /**
      * Mapping between a slot and the token state placed in it for each player.
      */
-    private TokenState[][] slotToToken;
+    private boolean[][] slotToToken;
 
     /**
      * An array of locks for each player.
@@ -68,7 +60,7 @@ public class Table {
         this.env = env;
         this.slotToCard = slotToCard;
         this.cardToSlot = cardToSlot;
-        this.slotToToken = new TokenState[env.config.tableSize][env.config.players];
+        this.slotToToken = new boolean[env.config.tableSize][env.config.players];
         playerLocks = new Object[env.config.players];
         for (int i = 0; i < env.config.players; i++) playerLocks[i] = new Object();
     }
@@ -129,9 +121,7 @@ public class Table {
 
         cardToSlot[card] = slot;
         slotToCard[slot] = card;
-        for (int i = 0; i < slotToToken[slot].length; i++) {
-            slotToToken[slot][i] = TokenState.EMPTY;
-        }
+        
         // Placing the card in UI
         env.ui.placeCard(card, slot); 
     }
@@ -148,16 +138,16 @@ public class Table {
             Thread.sleep(env.config.tableDelayMillis);
         } catch (InterruptedException ignored) {}
 
-        // Removing tokens from slot
-        for (int i = 0; i < slotToToken[slot].length; i++) {
-            slotToToken[slot][i] = TokenState.UNABLE;
-        }
-
         // Removing the card
         if (slotToCard[slot] != null) {
             int card = slotToCard[slot];
             slotToCard[slot] = null;
             cardToSlot[card] = null;
+
+            // Removing tokens from slot
+            for (int i = 0; i < slotToToken[slot].length; i++) {
+                slotToToken[slot][i] = false;
+            }
             env.ui.removeTokens(slot);
             env.ui.removeCard(slot);
         }
@@ -172,7 +162,7 @@ public class Table {
      ** write to slotToToken
      */
     public void placeToken(int player, int slot) {
-            slotToToken[slot][player] = TokenState.FULL;
+            slotToToken[slot][player] = true;
             env.ui.placeToken(player, slot);
     }
     
@@ -187,8 +177,8 @@ public class Table {
      ** write to slotToToken
      */
     public boolean removeToken(int player, int slot) {
-        if(slotToToken[slot][player] == TokenState.FULL) {
-            slotToToken[slot][player] = TokenState.EMPTY;
+        if(slotToToken[slot][player]) {
+            slotToToken[slot][player] = false;
             env.ui.removeToken(player, slot);
             return true;
         }
@@ -220,9 +210,9 @@ public class Table {
                 }
             }
             int numOfTokens = numOfTokens(player);
-            if(slotToToken[slot][player] == TokenState.UNABLE || (numOfTokens == env.config.featureSize && slotToToken[slot][player] == TokenState.EMPTY))
+            if(getCard(slot) == null || (numOfTokens == env.config.featureSize && !slotToToken[slot][player]))
                 return -1;
-            else if (slotToToken[slot][player] == TokenState.FULL){
+            else if (slotToToken[slot][player]){
                 removeToken(player, slot);
                 numOfTokens--;
             }
@@ -354,7 +344,7 @@ public class Table {
      private int numOfTokens (int player) {
         int count = 0;
         for (int slot = 0; slot < slotToToken.length; slot++) {
-            if(slotToToken[slot][player] == TokenState.FULL)
+            if(slotToToken[slot][player])
                 count++;
         }
         return count;
@@ -371,53 +361,9 @@ public class Table {
     private List<Integer> getTokenCards (int player) {
         List<Integer> cards = new ArrayList<Integer>();
         for (int slot = 0; slot < slotToToken.length; slot++) {
-            if(slotToToken[slot][player] == TokenState.FULL)
+            if(slotToToken[slot][player])
                 cards.add(getCard(slot));
         }
         return cards;
     }
-
-
-    //TODO No one use these methods, should be removed if no need 
-    /**
-     * @return - An array of placed cards on the table.
-     */
-   /* public Integer[] getCardsOnTable(){
-        List<Integer> cardsOnTable = new ArrayList<Integer>();
-        for (Integer card : slotToCard){
-            if (card != null)
-                cardsOnTable.add(card);
-        }
-        Integer[] arr = new Integer[cardsOnTable.size()];
-        return cardsOnTable.toArray(arr);
-    }
-
-    public Integer[] getSlotToCard(){
-        return this.slotToCard;
-    }
-
-    public Integer[] getCardtoSlot(){
-        return this.cardToSlot;
-    }
-
-    /**
-     * clears all the tokens from the table.
-     
-    private void clearAllTokens () {
-        for (int id = 0; id < env.config.players; id++)
-            clearTokensOfPlayer(id);
-        env.ui.removeTokens();
-    }
-
-    /**
-     * @param player - the player the tokens belong to.
-     * The method clears all the tokens placed by the player.
-     
-    private void clearTokensOfPlayer (int player){
-        for (int slot = 0; slot < env.config.tableSize; slot++){
-            removeToken(slot, player);
-        }
-    }
-
-    */ 
 }
