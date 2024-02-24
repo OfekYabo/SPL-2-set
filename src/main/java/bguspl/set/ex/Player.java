@@ -115,7 +115,13 @@ public class Player implements Runnable {
                 Thread.currentThread().interrupt();
             }
         }
-        if (!human) try { aiThread.join(); } catch (InterruptedException ignored) {}
+        if (!human) {
+            while (aiThread.isAlive()) { //for the case iterrupt while waiting to the AI thread to finish 
+                try {
+                    aiThread.join();
+                } catch (InterruptedException ignored) {}
+            }
+        }
         env.logger.info("thread " + Thread.currentThread().getName() + " terminated.");
     }
 
@@ -125,6 +131,7 @@ public class Player implements Runnable {
      */
     private void createArtificialIntelligence() {
         // note: this is a very, very smart AI (!)
+        int logID = id+1;
         aiThread = new Thread(() -> {
             env.logger.info("thread " + Thread.currentThread().getName() + " starting.");
             while (!terminate) {
@@ -133,7 +140,7 @@ public class Player implements Runnable {
                 AiKeyPressed(randomSlot);
             }
             env.logger.info("thread " + Thread.currentThread().getName() + " terminated.");
-        }, "computer-" + id);
+        }, "computer-" + logID);
         aiThread.start();
     }
 
@@ -143,6 +150,7 @@ public class Player implements Runnable {
      */
     public void terminate() {
         terminate = true;
+        aiThread.interrupt();
         playerThread.interrupt();
         try {
             playerThread.join();
@@ -234,6 +242,8 @@ public class Player implements Runnable {
     private void AiKeyPressed(int slot){
         try {
             queue.put(slot);
-        } catch (InterruptedException ignored){}
+        } catch (InterruptedException e){
+            Thread.currentThread().interrupt();
+        }
     }
 }
