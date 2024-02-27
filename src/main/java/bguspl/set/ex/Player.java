@@ -153,7 +153,7 @@ public class Player implements Runnable {
      */
     public void terminate() {
         terminate = true;
-        aiThread.interrupt();
+        if (!human) aiThread.interrupt();
         playerThread.interrupt();
         try {
             playerThread.join();
