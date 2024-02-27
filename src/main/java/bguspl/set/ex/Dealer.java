@@ -113,8 +113,8 @@ public class Dealer implements Runnable, DealerObserver {
      * Called when the game should be terminated, by X button or by the game end conditions.
      */
     public void terminate() {
-        for (Player player : players) {
-            player.terminate();
+        for (int player = players.length - 1; player >= 0; player--) {
+            players[player].terminate();
         }
         terminate = true;
     }
@@ -230,7 +230,8 @@ public class Dealer implements Runnable, DealerObserver {
     private void startPlayerThreads() {
         if (createPlayerThreads){
             for (Player player : players) {
-                Thread playerThread = new Thread(player, "Player: " + player.id + 1);
+                int logID = player.id +1;
+                Thread playerThread = new Thread(player, "Player: " + logID);
                 playerThread.start();
                 env.logger.info("thread " + playerThread.getName() + " created.");
             }

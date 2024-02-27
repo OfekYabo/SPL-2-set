@@ -115,7 +115,13 @@ public class Player implements Runnable {
                 Thread.currentThread().interrupt();
             }
         }
-        if (!human) try { aiThread.join(); } catch (InterruptedException ignored) {}
+        if (!human) {
+            while (aiThread.isAlive()) { //for the case iterrupt while waiting to the AI thread to finish 
+                try {
+                    aiThread.join();
+                } catch (InterruptedException ignored) {}
+            }
+        }
         env.logger.info("thread " + Thread.currentThread().getName() + " terminated.");
     }
 
@@ -125,19 +131,16 @@ public class Player implements Runnable {
      */
     private void createArtificialIntelligence() {
         // note: this is a very, very smart AI (!)
+        int logID = id+1;
         aiThread = new Thread(() -> {
             env.logger.info("thread " + Thread.currentThread().getName() + " starting.");
             while (!terminate) {
                 Random random = new Random();
                 int randomSlot = random.nextInt(env.config.tableSize);
-                keyPressed(randomSlot);
-
-               /*try {
-                    synchronized (this) { wait(); }
-                } catch (InterruptedException ignored) {}*/
+                AiKeyPressed(randomSlot);
             }
             env.logger.info("thread " + Thread.currentThread().getName() + " terminated.");
-        }, "computer-" + id);
+        }, "computer-" + logID);
         aiThread.start();
     }
 
@@ -147,6 +150,7 @@ public class Player implements Runnable {
      */
     public void terminate() {
         terminate = true;
+        aiThread.interrupt();
         playerThread.interrupt();
         try {
             playerThread.join();
@@ -159,9 +163,9 @@ public class Player implements Runnable {
      * @param slot - the slot corresponding to the key pressed.
      */
     public void keyPressed(int slot){
-        try {
-            queue.put(slot);
-        } catch (InterruptedException ignored){}
+        if (human) {
+                queue.offer(slot);
+        }
     }
 
     /**
@@ -232,6 +236,14 @@ public class Player implements Runnable {
             }
             pointOrPaneltyFlag = 0;
             env.ui.setFreeze(id, wait);
+        }
+    }
+
+    private void AiKeyPressed(int slot){
+        try {
+            queue.put(slot);
+        } catch (InterruptedException e){
+            Thread.currentThread().interrupt();
         }
     }
 }
