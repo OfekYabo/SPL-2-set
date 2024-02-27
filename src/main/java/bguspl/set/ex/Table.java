@@ -193,7 +193,7 @@ public class Table {
      * 
      * @param player - the player the token belongs to.
      * @param slot - the slot on which to place the token.
-     * @return - the amount of tokens the player has placed in the table after his action.
+     * @return - the amount of tokens the player has placed in the table after his action, -1 represent plca token isnt allowed.
      * 
      ** used by the player
      ** read and write to slotToToken 

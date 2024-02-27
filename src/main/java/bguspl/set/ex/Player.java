@@ -56,6 +56,9 @@ public class Player implements Runnable {
      */
     private int score;
 
+    /**
+     * The current slot player chose.
+     */
     private int slot;
 
     /*
@@ -66,7 +69,9 @@ public class Player implements Runnable {
     /*
      * true if point, false if penalty
      */
-    private volatile int pointOrPaneltyFlag = 0;
+    private volatile boolean pointOrPaneltyFlag;
+
+    private volatile boolean freezeFlag = false;
  
     /*
      * The queue of key presses.
@@ -111,9 +116,7 @@ public class Player implements Runnable {
             try {
                 slot = queue.take();
                 act();
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-            }
+            } catch (InterruptedException ignored) {}
         }
         if (!human) {
             while (aiThread.isAlive()) { //for the case iterrupt while waiting to the AI thread to finish 
@@ -175,7 +178,8 @@ public class Player implements Runnable {
      * @post - the player's score is updated in the ui.
      */
     public void point() {
-        pointOrPaneltyFlag = 1;
+        freezeFlag = true;
+        pointOrPaneltyFlag = true;
 
         //int ignored = table.countCards(); // this part is just for demonstration in the unit tests
         env.ui.setScore(id, ++score);
@@ -185,7 +189,8 @@ public class Player implements Runnable {
      * Penalize a player and perform other related actions.
      */
     public void penalty() {
-        pointOrPaneltyFlag = -1;
+        freezeFlag = true;
+        pointOrPaneltyFlag = false;
     }
 
     public int score() {
@@ -197,6 +202,10 @@ public class Player implements Runnable {
     // **new functions** //
     ///////////////////////
 
+    /**
+     * This method is called when player has keypressed to act
+     * @throws InterruptedException
+     */
     private void act() throws InterruptedException{
         int tokens = table.placeOrRemoveToken(id, slot);
         if (tokens == env.config.featureSize) {
@@ -212,10 +221,13 @@ public class Player implements Runnable {
         }
     }
 
-
+    /**
+     * This method is called after player being checked by the dealer.
+     * @throws InterruptedException
+     */
     private void freeze() throws InterruptedException {
-        if (pointOrPaneltyFlag != 0){
-            long wait = pointOrPaneltyFlag == 1 ? env.config.pointFreezeMillis : env.config.penaltyFreezeMillis;
+        if (freezeFlag){
+            long wait = pointOrPaneltyFlag ? env.config.pointFreezeMillis : env.config.penaltyFreezeMillis;
             while (wait >= displayTimeMillis) {
                 try {
                     env.ui.setFreeze(id, wait);
@@ -234,11 +246,17 @@ public class Player implements Runnable {
                 }
                 wait = 0;
             }
-            pointOrPaneltyFlag = 0;
+            freezeFlag = false;
             env.ui.setFreeze(id, wait);
         }
     }
 
+
+    /**
+     * This method is called when a key is pressed by the AI.
+     *
+     * @param slot - the slot corresponding to the key pressed.
+     */
     private void AiKeyPressed(int slot){
         try {
             queue.put(slot);
