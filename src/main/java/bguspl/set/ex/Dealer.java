@@ -52,7 +52,20 @@ public class Dealer implements Runnable, DealerObserver {
      */
     private BlockingQueue<PlayerTask> queue = new LinkedBlockingQueue<PlayerTask>();
 
+    /**
+     * The immediate task to be executed by the dealer.
+     */
     PlayerTask immediateTask = null;
+
+    /**
+     * The max time to sleep between update the clock when < warningTime .
+     */
+    private final long warningTimeWake = 100;
+
+    /**
+     * The timer diplay between changes (in milliseconds).
+     */
+    private final long displayTimeMillis = 1000;
 
     private class PlayerTask {
         int playerID;
@@ -177,6 +190,7 @@ public class Dealer implements Runnable, DealerObserver {
 
     /**
      * Reset and/or update the countdown and the countdown display.
+     * -1 the new time is to ensure that the display will be updated also when thread is quiq.
      */
     private void updateTimerDisplay(boolean reset) {
         if (reset) {
@@ -261,8 +275,8 @@ public class Dealer implements Runnable, DealerObserver {
      */
     private long getSleepTime(){
         if (getTimeLeft() < env.config.turnTimeoutWarningMillis) 
-            return 100;
-        return getTimeLeft()%1000;
+            return warningTimeWake;
+        return getTimeLeft()%displayTimeMillis;
     }
 
     /*
